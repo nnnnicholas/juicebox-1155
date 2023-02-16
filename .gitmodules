@@ -5,7 +5,3 @@
 [submodule "lib/ds-test"]
 	path = lib/ds-test
 	url = https://github.com/dapphub/ds-test
-[submodule "lib/juice-token-resolver.git"]
-	path = lib/juice-token-resolver.git
-	url = https://github.com/jbx-protocol/juice-token-resolver.git
-	branch = e907135959716f65288b746d92134eea5e6c892d
