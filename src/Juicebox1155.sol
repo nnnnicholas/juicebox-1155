@@ -4,7 +4,7 @@ pragma solidity >=0.8.0;
 import {ERC1155} from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import {JBProjects} from "@jbx-protocol/juice-contracts-v3/contracts/JBProjects.sol";
 
-contract Juciebox1155 is ERC1155 {
+contract Juicebox1155 is ERC1155 {
     JBProjects public resolver;
 
     constructor(JBProjects _resolver) ERC1155(""){
