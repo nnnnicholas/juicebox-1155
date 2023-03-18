@@ -59,7 +59,7 @@ contract Juicebox1155 is ERC1155, Ownable {
     uint256 public price;
 
     /// @dev The URI of the contract metadata
-    string public contractUri;
+    string private contractUri;
 
     /*//////////////////////////////////////////////////////////////
                              CONSTRUCTOR
