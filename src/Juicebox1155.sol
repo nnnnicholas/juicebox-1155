@@ -12,8 +12,9 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 //////////////////////////////////////////////////////////////*/
 
 struct Config {
-    address _revenueRecipient; // The address that mint revenues are forwarded to
     address _projects; // The JBProjects contract
+    address _revenueRecipient; // The address that mint revenues are forwarded to
+    uint256 _price; // The price of the NFT in wei
     string _contractUri; // The URI of the contract metadata
 }
 
@@ -65,10 +66,11 @@ contract Juicebox1155 is ERC1155, Ownable {
     //////////////////////////////////////////////////////////////*/
 
     constructor(Config memory _config) ERC1155("") {
-        projects = IERC721Metadata(_config._projects); // The JBProjects contract
-        revenueRecipient = _config._revenueRecipient; // The address that mint revenues are forwarded to
+        setMetadata(_config._projects); // Set the address of the JBProjects contract as the Metadata resolver
+        setRevenueRecipient(_config._revenueRecipient); // Set the address that mint revenues are forwarded to
+        setPrice(_config._price); // Set the price of the NFT
         if (bytes(contractUri).length > 0) {
-            contractUri = _config._contractUri; // The URI of the contract metadata
+            setContractUri(_config._contractUri); // Set the URI of the contract metadata if it is not empty
         }
     }
 
@@ -127,7 +129,7 @@ contract Juicebox1155 is ERC1155, Ownable {
      * @notice Sets the price of the NFT
      * @param _price The price of the NFT in wei
      */
-    function setPrice(uint256 _price) external onlyOwner {
+    function setPrice(uint256 _price) public onlyOwner {
         price = _price;
         emit PriceSet(_price);
     }
@@ -137,7 +139,7 @@ contract Juicebox1155 is ERC1155, Ownable {
      * @dev Ideally a JBProjectPayer contract whose receive() function forwards revenues to a Juicebox Project
      * @param _revenueRecipient The address that receives mint revenues
      */
-    function setRevenueRecipient(address _revenueRecipient) external onlyOwner {
+    function setRevenueRecipient(address _revenueRecipient) public onlyOwner {
         revenueRecipient = payable(_revenueRecipient);
         emit RevenueRecipientSet(_revenueRecipient);
     }
@@ -146,7 +148,7 @@ contract Juicebox1155 is ERC1155, Ownable {
      * @notice Sets the address of the JBProjects contract from which to get the NFT URI
      * @param _JBProjects The address of the JBProjects contract
      */
-    function setMetadata(address _JBProjects) external onlyOwner {
+    function setMetadata(address _JBProjects) public onlyOwner {
         projects = IERC721Metadata(_JBProjects);
         emit MetadataSet(_JBProjects);
     }
@@ -155,7 +157,7 @@ contract Juicebox1155 is ERC1155, Ownable {
      * @notice Sets the contract URI
      * @param _contractUri The URI of the contract metadata
      */
-    function setContractUri(string memory _contractUri) external onlyOwner {
+    function setContractUri(string memory _contractUri) public onlyOwner {
         contractUri = _contractUri;
         emit ContractUriSet(_contractUri);
     }
