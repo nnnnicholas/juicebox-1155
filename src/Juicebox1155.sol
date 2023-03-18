@@ -1,21 +1,162 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
 
-import {ERC1155} from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
-import {JBProjects} from "@jbx-protocol/juice-contracts-v3/contracts/JBProjects.sol";
+import {IERC1155, ERC1155, IERC165} from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import {IERC721Metadata} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
+import {IJBProjectPayer} from "@jbx-protocol/juice-contracts-v3/contracts/JBETHERC20ProjectPayer.sol";
+import {IJBDirectory} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBDirectory.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-contract Juicebox1155 is ERC1155 {
-    JBProjects public resolver;
+/*//////////////////////////////////////////////////////////////
+                             STRUCTS
+//////////////////////////////////////////////////////////////*/
 
-    constructor(JBProjects _resolver) ERC1155(""){
-        resolver = _resolver;
+struct Config {
+    address _revenueRecipient; // The address that mint revenues are forwarded to
+    address _projects; // The JBProjects contract
+    string _contractUri; // The URI of the contract metadata
+}
+
+/*//////////////////////////////////////////////////////////////
+                             ERRORS 
+//////////////////////////////////////////////////////////////*/
+
+error InsufficientFunds();
+
+/*//////////////////////////////////////////////////////////////
+                             CONTRACT 
+ //////////////////////////////////////////////////////////////*/
+
+contract Juicebox1155 is ERC1155, Ownable {
+    /*//////////////////////////////////////////////////////////////
+                             EVENTS 
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev Emitted when the price of the NFT is set
+    event PriceSet(uint256 _price);
+
+    /// @dev Emitted when the address that receives tokens from the Juicebox project that collects revenues is set
+    event RevenueRecipientSet(address _revenueRecipient);
+
+    /// @dev Emitted when the address of the JBProjects contract is set
+    event MetadataSet(address _JBProjects);
+
+    /// @dev Emitted when the URI of the contract metadata is set
+    event ContractUriSet(string _contractUri);
+
+    /*//////////////////////////////////////////////////////////////
+                           STORAGE VARIABLES
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev The address of the JBProjects contract
+    IERC721Metadata public projects;
+
+    /// @dev The address that receives tokens from the Juicebox project that collects revenues
+    address public revenueRecipient;
+
+    /// @dev The price of the NFT in wei
+    uint256 public price;
+
+    /// @dev The URI of the contract metadata
+    string public contractUri;
+
+    /*//////////////////////////////////////////////////////////////
+                             CONSTRUCTOR
+    //////////////////////////////////////////////////////////////*/
+
+    constructor(Config memory _config) ERC1155("") {
+        projects = IERC721Metadata(_config._projects); // The JBProjects contract
+        revenueRecipient = _config._revenueRecipient; // The address that mint revenues are forwarded to
+        if (bytes(contractUri).length > 0) {
+            contractUri = _config._contractUri; // The URI of the contract metadata
+        }
     }
 
-    function mint(uint256 projectId) external {
-        _mint(msg.sender, projectId, 1, bytes(""));
+    /*//////////////////////////////////////////////////////////////
+                             PUBLIC FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Mints an NFT
+     * @param projectId The ID of the project to mint the NFT for
+     */
+    function mint(uint256 projectId) external payable {
+        if (msg.value < price) {
+            revert InsufficientFunds();
+        }
+        _mint(msg.sender, projectId, 1, bytes("")); // Mint the NFT
+        (bool success, ) = address(revenueRecipient).call{value: msg.value}(""); // Send the revenue to the revenue recipient
     }
 
-    function uri(uint256 projectId) public view virtual override returns (string memory) {
-        return resolver.tokenURI( projectId);
+    /**
+     * @notice Returns the URI of the NFT
+     * @dev Returns the corresponding URI on the projects contract
+     * @param projectId The ID of the project to get the NFT URI for
+     */
+    function uri(
+        uint256 projectId
+    ) public view virtual override returns (string memory) {
+        return projects.tokenURI(projectId);
+    }
+
+    /**
+     * @notice Returns the contract URI
+     */
+    function contractURI() public view returns (string memory) {
+        return contractUri;
+    }
+
+    /**
+     * @notice Returns whether or not the contract supports an interface
+     * @param interfaceId The ID of the interface to check
+     * @inheritdoc IERC165
+     */
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view virtual override(ERC1155) returns (bool) {
+        return
+            interfaceId == type(IERC1155).interfaceId ||
+            super.supportsInterface(interfaceId);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                             OWNER FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /**
+     * @notice Sets the price of the NFT
+     * @param _price The price of the NFT in wei
+     */
+    function setPrice(uint256 _price) external onlyOwner {
+        price = _price;
+        emit PriceSet(_price);
+    }
+
+    /**
+     * @notice Sets the address that receives mint revenues
+     * @dev Ideally a JBProjectPayer contract whose receive() function forwards revenues to a Juicebox Project
+     * @param _revenueRecipient The address that receives mint revenues
+     */
+    function setRevenueRecipient(address _revenueRecipient) external onlyOwner {
+        revenueRecipient = payable(_revenueRecipient);
+        emit RevenueRecipientSet(_revenueRecipient);
+    }
+
+    /**
+     * @notice Sets the address of the JBProjects contract from which to get the NFT URI
+     * @param _JBProjects The address of the JBProjects contract
+     */
+    function setMetadata(address _JBProjects) external onlyOwner {
+        projects = IERC721Metadata(_JBProjects);
+        emit MetadataSet(_JBProjects);
+    }
+
+    /**
+     * @notice Sets the contract URI
+     * @param _contractUri The URI of the contract metadata
+     */
+    function setContractUri(string memory _contractUri) external onlyOwner {
+        contractUri = _contractUri;
+        emit ContractUriSet(_contractUri);
     }
 }
