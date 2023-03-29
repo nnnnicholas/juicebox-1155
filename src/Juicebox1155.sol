@@ -3,20 +3,9 @@ pragma solidity >=0.8.0;
 
 import {IERC1155, ERC1155, IERC165} from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import {IERC721Metadata} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
-import {IJBProjectPayer} from "@jbx-protocol/juice-contracts-v3/contracts/JBETHERC20ProjectPayer.sol";
 import {IJBDirectory} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBDirectory.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-
-/*//////////////////////////////////////////////////////////////
-                             STRUCTS
-//////////////////////////////////////////////////////////////*/
-
-struct Config {
-    address _projects; // The JBProjects contract
-    address _revenueRecipient; // The address that mint revenues are forwarded to
-    uint256 _price; // The price of the NFT in wei
-    string _contractUri; // The URI of the contract metadata
-}
+import {Config} from "src/Structs/Config.sol";
 
 /*//////////////////////////////////////////////////////////////
                              ERRORS 
@@ -66,11 +55,11 @@ contract Juicebox1155 is ERC1155, Ownable {
     //////////////////////////////////////////////////////////////*/
 
     constructor(Config memory _config) ERC1155("") {
-        setMetadata(_config._projects); // Set the address of the JBProjects contract as the Metadata resolver
-        setRevenueRecipient(_config._revenueRecipient); // Set the address that mint revenues are forwarded to
-        setPrice(_config._price); // Set the price of the NFT
+        setMetadata(_config.projects); // Set the address of the JBProjects contract as the Metadata resolver
+        setRevenueRecipient(_config.revenueRecipient); // Set the address that mint revenues are forwarded to
+        setPrice(_config.price); // Set the price of the NFT
         if (bytes(contractUri).length > 0) {
-            setContractUri(_config._contractUri); // Set the URI of the contract metadata if it is not empty
+            setContractUri(_config.contractUri); // Set the URI of the contract metadata if it is not empty
         }
     }
 
@@ -87,7 +76,10 @@ contract Juicebox1155 is ERC1155, Ownable {
             revert InsufficientFunds();
         }
         _mint(msg.sender, projectId, 1, bytes("")); // Mint the NFT
-        (bool success, ) = address(revenueRecipient).call{value: msg.value}(""); // Send the revenue to the revenue recipient
+        (bool success, ) = address(revenueRecipient).call{
+            value: msg.value,
+            gas: 500000
+        }(""); // Send the revenue to the revenue recipient
     }
 
     /**
