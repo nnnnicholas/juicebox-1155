@@ -1,0 +1,88 @@
+{
+  "transactions": [
+    {
+      "hash": "0x11dd377a9d2f784c0508f0fcf2a4d20908c2a83b6d998c9be969c6fe8c4e9146",
+      "transactionType": "CALL",
+      "contractName": null,
+      "contractAddress": null,
+      "function": null,
+      "arguments": null,
+      "rpc": "https://goerli.infura.io/v3/af09bae72cd649e1a1b1efcb44b6a54a",
+      "transaction": {
+        "type": "0x02",
+        "from": "0x2d246f42cd32eb7e8bd75f9295c8c457c6811d2e",
+        "to": "0x0000000000000000000000000000000000000032",
+        "gas": "0x714d",
+        "value": "0x1",
+        "data": "0x",
+        "nonce": "0x76",
+        "accessList": []
+      },
+      "additionalContracts": [],
+      "isFixedGasLimit": false
+    },
+    {
+      "hash": "0x19bf2b154c797c3b97d675bc9b243b7261eee38ff38fd2d4a2f89dff1bab9d1b",
+      "transactionType": "CALL",
+      "contractName": null,
+      "contractAddress": null,
+      "function": null,
+      "arguments": null,
+      "rpc": "https://goerli.infura.io/v3/af09bae72cd649e1a1b1efcb44b6a54a",
+      "transaction": {
+        "type": "0x02",
+        "from": "0x2d246f42cd32eb7e8bd75f9295c8c457c6811d2e",
+        "to": "0x0000000000000000000000000000000000000033",
+        "gas": "0x714d",
+        "value": "0x1",
+        "data": "0x",
+        "nonce": "0x77",
+        "accessList": []
+      },
+      "additionalContracts": [],
+      "isFixedGasLimit": false
+    }
+  ],
+  "receipts": [
+    {
+      "transactionHash": "0x11dd377a9d2f784c0508f0fcf2a4d20908c2a83b6d998c9be969c6fe8c4e9146",
+      "transactionIndex": "0xd",
+      "blockHash": "0xe1bcb12889963edbcca41ab673b8cf3f743e37880fc02c223c4f1ebde3d2e62d",
+      "blockNumber": "0x856158",
+      "from": "0x2D246F42CD32eB7e8Bd75F9295c8C457C6811d2e",
+      "to": "0x0000000000000000000000000000000000000032",
+      "cumulativeGasUsed": "0x83397",
+      "gasUsed": "0x5208",
+      "contractAddress": null,
+      "logs": [],
+      "status": "0x1",
+      "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "type": "0x2",
+      "effectiveGasPrice": "0x34ec684b6"
+    },
+    {
+      "transactionHash": "0x19bf2b154c797c3b97d675bc9b243b7261eee38ff38fd2d4a2f89dff1bab9d1b",
+      "transactionIndex": "0xe",
+      "blockHash": "0xe1bcb12889963edbcca41ab673b8cf3f743e37880fc02c223c4f1ebde3d2e62d",
+      "blockNumber": "0x856158",
+      "from": "0x2D246F42CD32eB7e8Bd75F9295c8C457C6811d2e",
+      "to": "0x0000000000000000000000000000000000000033",
+      "cumulativeGasUsed": "0x8859f",
+      "gasUsed": "0x5208",
+      "contractAddress": null,
+      "logs": [],
+      "status": "0x1",
+      "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "type": "0x2",
+      "effectiveGasPrice": "0x34ec684b6"
+    }
+  ],
+  "libraries": [],
+  "pending": [],
+  "path": "/Users/nico/Development/juicebox/juicebox-1155/broadcast/Goerli_Deploy.s.sol/5/run-latest.json",
+  "returns": {},
+  "timestamp": 1680136590,
+  "chain": 5,
+  "multi": false,
+  "commit": "fd5e2df"
+}

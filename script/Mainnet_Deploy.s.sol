@@ -8,10 +8,10 @@ import {IJBProjects} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces
 import {Config} from "src/Structs/Config.sol";
 
 contract DeployScript is Script {
-    // Goerli constructor args
-    address public projects = 0x21263a042aFE4bAE34F08Bb318056C181bD96D3b;
+    // Mainnet constructor args
+    address public projects = 0xD8B4359143eda5B2d763E127Ed27c77addBc47d3;
     address payable public projectPayer =
-        payable(0x0e44297757856fc9236A130D11B0547d42Ce27d8);
+        payable(0x277eeD88690577807285a4F54a7384e597db8e90);
     uint256 public priceInWei = 0;
     string public contractUri = "";
 
@@ -20,7 +20,7 @@ contract DeployScript is Script {
         Config(projects, projectPayer, priceInWei, contractUri);
 
     function run() public {
-        uint256 deployerPrivateKey = vm.envUint("GOERLI_PRIVATE_KEY");
+        uint256 deployerPrivateKey = vm.envUint("MAINNET_PRIVATE_KEY");
         // Deploy Juicebox1155
         vm.startBroadcast(deployerPrivateKey);
         Juicebox1155 juicebox1155 = new Juicebox1155(config);

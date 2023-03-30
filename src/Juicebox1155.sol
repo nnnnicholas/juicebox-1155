@@ -34,6 +34,9 @@ contract Juicebox1155 is ERC1155, Ownable {
     /// @dev Emitted when the URI of the contract metadata is set
     event ContractUriSet(string _contractUri);
 
+    /// @dev Emitted when an error occurs
+    event Error(string reason);
+
     /*//////////////////////////////////////////////////////////////
                            STORAGE VARIABLES
     //////////////////////////////////////////////////////////////*/
@@ -76,10 +79,13 @@ contract Juicebox1155 is ERC1155, Ownable {
             revert InsufficientFunds();
         }
         _mint(msg.sender, projectId, 1, bytes("")); // Mint the NFT
-        (bool success, ) = address(revenueRecipient).call{
-            value: msg.value,
-            gas: 500000
-        }(""); // Send the revenue to the revenue recipient
+        (bool success, bytes memory data) = payable(address(revenueRecipient))
+            .call{value: msg.value}(""); // Send the revenue to the revenue recipient
+        if (!success) {
+            // If the transaction was not successful, emit the error reason as an event
+            emit Error(string (data));
+            revert();
+        }
     }
 
     /**

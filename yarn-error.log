@@ -1,5 +1,5 @@
 Arguments: 
-  /Users/nico/.nvm/versions/node/v18.7.0/bin/node /Users/nico/.nvm/versions/node/v18.7.0/bin/yarn add jbx-protocol/juice-token-resolver@e907135959716f65288b746d92134eea5e6c892d
+  /Users/nico/.nvm/versions/node/v18.7.0/bin/node /Users/nico/.nvm/versions/node/v18.7.0/bin/yarn upgrade jbx-protocol/juice-contracts-v3@latest
 
 PATH: 
   /Users/nico/.yarn/bin:/Users/nico/.nvm/versions/node/v18.7.0/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/go/bin:/usr/local/MacGPG2/bin:/usr/local/share/dotnet:/Users/nico/.yarn/bin:/Users/nico/.nvm/versions/node/v18.7.0/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/Users/nico/.cargo/bin:/Users/nico/.foundry/bin:/Users/nico/.foundry/bin
@@ -14,7 +14,7 @@ Platform:
   darwin arm64
 
 Trace: 
-  Error: https://registry.yarnpkg.com/jbx-protocol%2fjuice-token-resolver: Request "https://registry.yarnpkg.com/jbx-protocol%2fjuice-token-resolver" returned a 405
+  Error: https://registry.yarnpkg.com/jbx-protocol%2fjuice-contracts-v3: Request "https://registry.yarnpkg.com/jbx-protocol%2fjuice-contracts-v3" returned a 405
       at params.callback [as _callback] (/Users/nico/.nvm/versions/node/v18.7.0/lib/node_modules/yarn/lib/cli.js:66154:18)
       at self.callback (/Users/nico/.nvm/versions/node/v18.7.0/lib/node_modules/yarn/lib/cli.js:140890:22)
       at Request.emit (node:events:513:28)
