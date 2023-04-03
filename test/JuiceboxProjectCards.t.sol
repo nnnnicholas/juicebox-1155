@@ -3,7 +3,7 @@ pragma solidity >=0.8.0;
 
 //Juicebox1155
 import "forge-std/Test.sol";
-import {Juicebox1155, Config} from "../src/Juicebox1155.sol";
+import {JuiceboxProjectCards, Config} from "../src/JuiceboxProjectCards.sol";
 import {ERC1155Receiver, IERC1155Receiver} from "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Receiver.sol";
 
 // JB
@@ -13,7 +13,7 @@ import {IJBPayoutRedemptionPaymentTerminal} from "@jbx-protocol/juice-contracts-
 import {IJBPayoutRedemptionPaymentTerminal3_1} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBPayoutRedemptionPaymentTerminal3_1.sol";
 import {JBTokens} from "@jbx-protocol/juice-contracts-v3/contracts/libraries/JBTokens.sol";
 
-contract Juicebox1155Test is Test, ERC1155Receiver {
+contract JuiceboxProjectCardsTest is Test, ERC1155Receiver {
     // SETUP
     uint256 constant FORK_BLOCK_NUMBER = 16942000; // All tests executed at this block
     string MAINNET_RPC_URL = "MAINNET_RPC_URL";
@@ -33,7 +33,7 @@ contract Juicebox1155Test is Test, ERC1155Receiver {
     Config public config =
         Config(projects, projectPayer, priceInWei, contractUri);
     // Deploy Juicebox1155
-    Juicebox1155 juicebox1155 = new Juicebox1155(config);
+    JuiceboxProjectCards juiceboxProjectCards = new JuiceboxProjectCards(config);
 
     // Test that you can mint an NFT
     // TODO
@@ -46,7 +46,7 @@ contract Juicebox1155Test is Test, ERC1155Receiver {
         // Get the projects
 
         // Get balance of the project before minting
-        juicebox1155.mint{value: 0.01 ether}(1); // Mint an NFT
+        juiceboxProjectCards.mint{value: 0.01 ether}(1); // Mint an NFT
         // Get balance of the project after minting
         // uint256 balanceAfter;
 
