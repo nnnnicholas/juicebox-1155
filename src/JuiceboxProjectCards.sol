@@ -2,7 +2,7 @@
 pragma solidity >=0.8.0;
 
 /// @title Juicebox Project Cards v1.1
-/// @notice Limited testing so far. Use at your own risk. The code is straightforward and very simple. 
+/// @notice Limited testing so far. Use at your own risk. The code is straightforward and very simple.
 /// @author @nnnnicholas
 /// @dev Thanks to the jb contract crew for help debugging some issues.
 
@@ -67,9 +67,7 @@ contract JuiceboxProjectCards is ERC1155, Ownable {
         setMetadata(_config.projects); // Set the address of the JBProjects contract as the Metadata resolver
         setRevenueRecipient(_config.revenueRecipient); // Set the address that mint revenues are forwarded to
         setPrice(_config.price); // Set the price of the NFT
-        if (bytes(contractUri).length > 0) {
-            setContractUri(_config.contractUri); // Set the URI of the contract metadata if it is not empty
-        }
+        setContractUri(_config.contractUri); // Set the URI of the contract metadata if it is not empty
     }
 
     /*//////////////////////////////////////////////////////////////
