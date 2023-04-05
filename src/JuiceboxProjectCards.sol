@@ -1,10 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0;
 
+/// @title Juicebox Project Cards v1.1
+/// @notice Limited testing so far. Use at your own risk. The code is straightforward and very simple.
+/// @author @nnnnicholas
+/// @dev Thanks to the jb contract crew for help debugging some issues.
+
 import {IERC1155, ERC1155, IERC165} from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import {IERC721Metadata} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
-import {IJBDirectory} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBDirectory.sol";
+import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {IJBDirectory} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBDirectory.sol";
 import {Config} from "src/Structs/Config.sol";
 
 /*//////////////////////////////////////////////////////////////
@@ -17,7 +23,7 @@ error InsufficientFunds();
                              CONTRACT 
  //////////////////////////////////////////////////////////////*/
 
-contract Juicebox1155 is ERC1155, Ownable {
+contract JuiceboxProjectCards is ERC1155, Ownable {
     /*//////////////////////////////////////////////////////////////
                              EVENTS 
     //////////////////////////////////////////////////////////////*/
@@ -34,8 +40,8 @@ contract Juicebox1155 is ERC1155, Ownable {
     /// @dev Emitted when the URI of the contract metadata is set
     event ContractUriSet(string _contractUri);
 
-    /// @dev Emitted when an error occurs
-    event Error(string reason);
+    /// @dev Emitted when funds are withdrawn
+    event Withdrew(address _revenueRecipient, uint256 _amount);
 
     /*//////////////////////////////////////////////////////////////
                            STORAGE VARIABLES
@@ -45,7 +51,7 @@ contract Juicebox1155 is ERC1155, Ownable {
     IERC721Metadata public projects;
 
     /// @dev The address that receives tokens from the Juicebox project that collects revenues
-    address public revenueRecipient;
+    address payable public revenueRecipient;
 
     /// @dev The price of the NFT in wei
     uint256 public price;
@@ -61,9 +67,7 @@ contract Juicebox1155 is ERC1155, Ownable {
         setMetadata(_config.projects); // Set the address of the JBProjects contract as the Metadata resolver
         setRevenueRecipient(_config.revenueRecipient); // Set the address that mint revenues are forwarded to
         setPrice(_config.price); // Set the price of the NFT
-        if (bytes(contractUri).length > 0) {
-            setContractUri(_config.contractUri); // Set the URI of the contract metadata if it is not empty
-        }
+        setContractUri(_config.contractUri); // Set the URI of the contract metadata if it is not empty
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -78,14 +82,28 @@ contract Juicebox1155 is ERC1155, Ownable {
         if (msg.value < price) {
             revert InsufficientFunds();
         }
-        _mint(msg.sender, projectId, 1, bytes("")); // Mint the NFT
-        (bool success, bytes memory data) = payable(address(revenueRecipient))
-            .call{value: msg.value}(""); // Send the revenue to the revenue recipient
-        if (!success) {
-            // If the transaction was not successful, emit the error reason as an event
-            emit Error(string (data));
-            revert();
+        _mint(msg.sender, projectId, 1, bytes(""));
+    }
+
+    /**
+     * @notice Mints multiple NFTs
+     * @param projectId The ID of the project to mint the NFT for
+     * @param amount The amount of NFTs to mint
+     */
+    function mintMany(uint256 projectId, uint256 amount) external payable {
+        if (msg.value < price * amount) {
+            revert InsufficientFunds();
         }
+        _mint(msg.sender, projectId, amount, bytes(""));
+    }
+
+    /**
+     * @notice Transfers revenue from the contract to the revenue recipient
+     */
+    function withdraw() external {
+        uint256 balance = address(this).balance;
+        Address.sendValue(revenueRecipient, balance);
+        emit Withdrew(revenueRecipient, balance);
     }
 
     /**

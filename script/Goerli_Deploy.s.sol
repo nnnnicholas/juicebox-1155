@@ -2,7 +2,7 @@
 pragma solidity ^0.8.17;
 
 import "forge-std/Script.sol";
-import {Juicebox1155} from "src/Juicebox1155.sol";
+import {JuiceboxProjectCards} from "src/JuiceboxProjectCards.sol";
 import {IJBProjectPayer} from "@jbx-protocol/juice-contracts-v3/contracts/JBETHERC20ProjectPayer.sol";
 import {IJBProjects} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBProjects.sol";
 import {Config} from "src/Structs/Config.sol";
@@ -23,7 +23,7 @@ contract DeployScript is Script {
         uint256 deployerPrivateKey = vm.envUint("GOERLI_PRIVATE_KEY");
         // Deploy Juicebox1155
         vm.startBroadcast(deployerPrivateKey);
-        Juicebox1155 juicebox1155 = new Juicebox1155(config);
+        JuiceboxProjectCards juiceboxProjectCards = new JuiceboxProjectCards(config);
         vm.stopBroadcast();
     }
 }
