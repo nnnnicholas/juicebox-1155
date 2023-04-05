@@ -3,7 +3,7 @@ pragma solidity >=0.8.0;
 
 //Juicebox1155
 import "forge-std/Test.sol";
-import {JuiceboxProjectCards, Config} from "../src/JuiceboxProjectCards.sol";
+import {JuiceboxProjectCards, Config, InsufficientFunds, IERC1155} from "../src/JuiceboxProjectCards.sol";
 import {ERC1155Receiver, IERC1155Receiver} from "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Receiver.sol";
 
 // JB
@@ -17,8 +17,8 @@ contract JuiceboxProjectCardsTest is Test, ERC1155Receiver {
     // SETUP
     uint256 constant FORK_BLOCK_NUMBER = 16942000; // All tests executed at this block
     string MAINNET_RPC_URL = "MAINNET_RPC_URL";
-    uint256 forkId =
-        vm.createSelectFork(vm.envString(MAINNET_RPC_URL), FORK_BLOCK_NUMBER);
+    // uint256 forkId = vm.createSelectFork(vm.envString(MAINNET_RPC_URL)); // Fork latest block
+    uint256 forkId = vm.createSelectFork(vm.envString(MAINNET_RPC_URL), FORK_BLOCK_NUMBER); // Fork specific block
 
     // Mainnet constructor args
     IJBDirectory constant JBDIRECTORY =
@@ -52,6 +52,16 @@ contract JuiceboxProjectCardsTest is Test, ERC1155Receiver {
         assertEq(balanceBefore + x, balanceAfter); // Compare the two balances
     }
 
+    // Test that the mint function reverts if the value sent is less than the price
+    function testMintInsufficientFunds(uint x) public {
+        vm.assume(x > 0 && x <= PRICE_IN_WEI); // Assume thaht x is greater than zero but less than price of 1 NFT
+        vm.deal(address(420), x * PRICE_IN_WEI); // Send 420 x ETH
+        vm.startPrank(address(420)); // Set the prank address to 420
+        vm.expectRevert(InsufficientFunds.selector);
+        juiceboxProjectCards.mint{value: PRICE_IN_WEI - x}(1); // Mint an NFT
+        vm.stopPrank();
+    }
+
     // Test that user can mintMany
     function testMintMany(uint x, uint y) public {
         vm.assume(x > 0 && x < 100); // Assume that the number of NFTs to mint is 0 < x < 100
@@ -66,19 +76,29 @@ contract JuiceboxProjectCardsTest is Test, ERC1155Receiver {
         assertEq(juiceboxProjectCards.balanceOf(address(420), y), x); // Check that the user has x NFTs of project y
     }
 
+    // Test that the mintMany function reverts if the user does not send enough funds
+    function testMintManyInsufficientFunds(uint x, uint y) public {
+        vm.assume(x > 0 && x <= PRICE_IN_WEI); // Assume thaht x is greater than zero but less than price of 1 NFT
+        vm.deal(address(420), x * PRICE_IN_WEI); // Send 420 x ETH
+        vm.startPrank(address(420)); // Set the prank address to 420
+        vm.expectRevert(InsufficientFunds.selector);
+        juiceboxProjectCards.mintMany{value: x * PRICE_IN_WEI - 1}(y, x); // Mint many NFTs
+        vm.stopPrank();
+    }
+
     // Test that the withdraw function works to an EOA
     function testWithdraw() public {
-        juiceboxProjectCards.mint{value: PRICE_IN_WEI}(1); // Mint an NFT
+        juiceboxProjectCards.mint{value: PRICE_IN_WEI * 10}(10); // Mint an NFT
         uint contractBalance = address(juiceboxProjectCards).balance; // Get balance of the project after minting
         uint revenueRecipientBalance = address(REVENUE_RECIPIENT).balance; // Get balance of the revenue recipient before withdrawing
         juiceboxProjectCards.withdraw(); // Withdraw the funds
         uint revenueRecipientBalanceAfter = address(REVENUE_RECIPIENT).balance; // Get balance of the revenue recipient after withdrawing
-        assertEq(revenueRecipientBalanceAfter, PRICE_IN_WEI); // Check that funds have moved to the revenue recipient
+        assertEq(revenueRecipientBalanceAfter, PRICE_IN_WEI * 10); // Check that funds have moved to the revenue recipient
         assertEq(address(juiceboxProjectCards).balance, 0); // Check that the contract balance is 0
     }
 
     // Test that contractUri is correctly set in constructor
-    function testContractUri() public {
+    function testContractUriConstructor() public {
         string memory contractUri = juiceboxProjectCards.contractURI();
         assertEq(contractUri, CONTRACT_URI);
     }
@@ -90,20 +110,36 @@ contract JuiceboxProjectCardsTest is Test, ERC1155Receiver {
         assertEq(contractUri, "abc");
     }
 
-    // Lets external addresses mint an NFT whose metadata that matches the metadata that JBProjects returns and sends eth to juicebox
-    // Does not let anyone mint without paying
+    function testOnlyOwnerFunctions() public {
+        vm.startPrank(address(420));
 
-    // function testUri() public {
-    //     j.mint(1);
-    //     string memory x = j.uri(1);
+        // Set price
+        vm.expectRevert("Ownable: caller is not the owner");
+        juiceboxProjectCards.setPrice(0);
 
-    //     string[] memory inputs = new string[](3);
-    //     inputs[0] = "node";
-    //     inputs[1] = "./open.js";
-    //     inputs[2] = x;
-    //     // bytes memory res = vm.ffi(inputs);
-    //     vm.ffi(inputs);
-    // }
+        // Set revenue recipient
+        vm.expectRevert("Ownable: caller is not the owner");
+        juiceboxProjectCards.setRevenueRecipient(address(420));
+
+        // Set contract URI
+        vm.expectRevert("Ownable: caller is not the owner");
+        juiceboxProjectCards.setContractUri("abc");
+
+        // Set metadata URI
+        vm.expectRevert("Ownable: caller is not the owner");
+        juiceboxProjectCards.setMetadata(address(0));
+
+        vm.stopPrank();
+    }
+
+    function testSupportsInterface() public {
+        assertEq(
+            juiceboxProjectCards.supportsInterface(
+                type(IERC1155).interfaceId
+            ),
+            true
+        );
+    }
 
     function supportsInterface(
         bytes4 interfaceId
@@ -111,6 +147,7 @@ contract JuiceboxProjectCardsTest is Test, ERC1155Receiver {
         return
             interfaceId == type(IERC1155Receiver).interfaceId ||
             super.supportsInterface(interfaceId);
+
     }
 
     function onERC1155Received(
