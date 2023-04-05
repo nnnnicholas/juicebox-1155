@@ -8,17 +8,23 @@ import {ERC1155Receiver, IERC1155Receiver} from "@openzeppelin/contracts/token/E
 
 // JB
 import {IJBDirectory} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBDirectory.sol";
+import {JBProjects} from "@jbx-protocol/juice-contracts-v3/contracts/JBProjects.sol";
+// import {IJBProjects} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBProjects.sol";
 import {IJBPaymentTerminal} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBPaymentTerminal.sol";
 import {IJBPayoutRedemptionPaymentTerminal} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBPayoutRedemptionPaymentTerminal.sol";
 import {IJBPayoutRedemptionPaymentTerminal3_1} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBPayoutRedemptionPaymentTerminal3_1.sol";
 import {JBTokens} from "@jbx-protocol/juice-contracts-v3/contracts/libraries/JBTokens.sol";
 
 contract JuiceboxProjectCardsTest is Test, ERC1155Receiver {
-    // SETUP
+    /*//////////////////////////////////////////////////////////////
+                                 SETUP
+    //////////////////////////////////////////////////////////////*/
+
     uint256 constant FORK_BLOCK_NUMBER = 16942000; // All tests executed at this block
     string MAINNET_RPC_URL = "MAINNET_RPC_URL";
     // uint256 forkId = vm.createSelectFork(vm.envString(MAINNET_RPC_URL)); // Fork latest block
-    uint256 forkId = vm.createSelectFork(vm.envString(MAINNET_RPC_URL), FORK_BLOCK_NUMBER); // Fork specific block
+    uint256 forkId =
+        vm.createSelectFork(vm.envString(MAINNET_RPC_URL), FORK_BLOCK_NUMBER); // Fork specific block
 
     // Mainnet constructor args
     IJBDirectory constant JBDIRECTORY =
@@ -39,14 +45,18 @@ contract JuiceboxProjectCardsTest is Test, ERC1155Receiver {
     JuiceboxProjectCards juiceboxProjectCards =
         new JuiceboxProjectCards(config);
 
+    /*//////////////////////////////////////////////////////////////
+                                 TESTS
+    //////////////////////////////////////////////////////////////*/
+
     // Test that you can mint an NFT
-    function testMint(uint x) public {
-        vm.assume(x < 100 ether); // Assume that the value is less than 100 ETH
-        vm.assume(x > PRICE_IN_WEI); // Assume that the value is greater than the price (0.01 ETH
+    function testMintOne(uint x, uint y) public {
+        x = bound(x, PRICE_IN_WEI, 100 ether); // Assume that x is is greater than the price (0.01 ETH) and less than 100 ETH
+        y = bound(y, 1, JBProjects(JBPROJECTS).count()); // Assume that the project ID is greater than 0 and less than 400
         vm.deal(address(420), x); // Send 420 x ETH
         vm.startPrank(address(420)); // Set the prank address to 420
         uint balanceBefore = address(juiceboxProjectCards).balance; // Get balance of the NFT contract before minting
-        juiceboxProjectCards.mint{value: x}(1); // Mint an NFT
+        juiceboxProjectCards.mint{value: x}(y); // Mint an NFT
         uint balanceAfter = address(juiceboxProjectCards).balance; // Get balance of the NFT contract after minting
         vm.stopPrank();
         assertEq(balanceBefore + x, balanceAfter); // Compare the two balances
@@ -54,7 +64,7 @@ contract JuiceboxProjectCardsTest is Test, ERC1155Receiver {
 
     // Test that the mint function reverts if the value sent is less than the price
     function testMintInsufficientFunds(uint x) public {
-        vm.assume(x > 0 && x <= PRICE_IN_WEI); // Assume thaht x is greater than zero but less than price of 1 NFT
+        x = bound(x, 1, PRICE_IN_WEI); // Assume thaht x is greater than zero but less than price of 1 NFT
         vm.deal(address(420), x * PRICE_IN_WEI); // Send 420 x ETH
         vm.startPrank(address(420)); // Set the prank address to 420
         vm.expectRevert(InsufficientFunds.selector);
@@ -64,8 +74,8 @@ contract JuiceboxProjectCardsTest is Test, ERC1155Receiver {
 
     // Test that user can mintMany
     function testMintMany(uint x, uint y) public {
-        vm.assume(x > 0 && x < 100); // Assume that the number of NFTs to mint is 0 < x < 100
-        vm.assume(y > 0 && y < 300); // Assume that the project ID to mint is less than 400
+        x = bound(x, 1, 100); // Assume that the number of NFTs to mint is 0 < x < 100
+        y = bound(y, 1, 400); // Assume that the project ID to mint is less than 400
         vm.deal(address(420), 10 ether); // Send 420 x ETH
         vm.startPrank(address(420)); // Set the prank address to 420
         uint balanceBefore = address(juiceboxProjectCards).balance; // Get balance of the NFT contract before minting
@@ -78,12 +88,19 @@ contract JuiceboxProjectCardsTest is Test, ERC1155Receiver {
 
     // Test that the mintMany function reverts if the user does not send enough funds
     function testMintManyInsufficientFunds(uint x, uint y) public {
-        vm.assume(x > 0 && x <= PRICE_IN_WEI); // Assume thaht x is greater than zero but less than price of 1 NFT
+        x = bound(x, 1, PRICE_IN_WEI); // Assume that x is greater than zero but less than or equal to price of 1 NFT
         vm.deal(address(420), x * PRICE_IN_WEI); // Send 420 x ETH
         vm.startPrank(address(420)); // Set the prank address to 420
         vm.expectRevert(InsufficientFunds.selector);
         juiceboxProjectCards.mintMany{value: x * PRICE_IN_WEI - 1}(y, x); // Mint many NFTs
         vm.stopPrank();
+    }
+
+    // Test that the uri returns expeted value
+    function testUri() public {
+        testMintOne(1, 1); // Mint NFT for project 1, giving the minter 1 eth budget
+        string memory uriFromJBProjects = JBProjects(JBPROJECTS).tokenURI(1);
+        string memory uriFromContract = juiceboxProjectCards.uri(1);
     }
 
     // Test that the withdraw function works to an EOA
@@ -132,14 +149,17 @@ contract JuiceboxProjectCardsTest is Test, ERC1155Receiver {
         vm.stopPrank();
     }
 
+    // Test that the supportsInterface function returns true for ERC1155
     function testSupportsInterface() public {
         assertEq(
-            juiceboxProjectCards.supportsInterface(
-                type(IERC1155).interfaceId
-            ),
+            juiceboxProjectCards.supportsInterface(type(IERC1155).interfaceId),
             true
         );
     }
+
+    /*//////////////////////////////////////////////////////////////
+                             TEST UTILITIES
+    //////////////////////////////////////////////////////////////*/
 
     function supportsInterface(
         bytes4 interfaceId
@@ -147,7 +167,6 @@ contract JuiceboxProjectCardsTest is Test, ERC1155Receiver {
         return
             interfaceId == type(IERC1155Receiver).interfaceId ||
             super.supportsInterface(interfaceId);
-
     }
 
     function onERC1155Received(
