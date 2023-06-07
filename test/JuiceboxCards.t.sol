@@ -172,6 +172,18 @@ contract JuiceboxCardsTest is Test, ERC1155Receiver {
         );
     }
 
+    // Test that the supportsInterface function returns false for an unsupported interface
+    function testSupportsInterfaceFails() public {
+        // Choose a random interface ID that your contract doesn't support.
+        // For example, the EIP-721 interface ID.
+        bytes4 unsupportedInterfaceId = 0x80ac58cd;
+
+        assertEq(
+            juiceboxCards.supportsInterface(unsupportedInterfaceId),
+            false
+        );
+    }
+
     /*//////////////////////////////////////////////////////////////
                              TEST UTILITIES
     //////////////////////////////////////////////////////////////*/
