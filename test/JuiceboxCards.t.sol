@@ -21,7 +21,7 @@ contract JuiceboxCardsTest is Test, ERC1155Receiver {
                                  SETUP
     //////////////////////////////////////////////////////////////*/
 
-    uint256 constant FORK_BLOCK_NUMBER = 16942000; // All tests executed at this block
+    uint256 constant FORK_BLOCK_NUMBER = 17430282; // All tests executed at this block
     string MAINNET_RPC_URL = "MAINNET_RPC_URL";
     // uint256 forkId = vm.createSelectFork(vm.envString(MAINNET_RPC_URL)); // Fork latest block
     uint256 forkId =
@@ -69,7 +69,7 @@ contract JuiceboxCardsTest is Test, ERC1155Receiver {
         juiceboxCards.mint{value: value}(y); // Mint an NFT
         uint balanceAfter = address(juiceboxCards).balance; // Get balance of the NFT contract after minting
         vm.stopPrank();
-        assertEq(balanceBefore + value, balanceAfter); // Compare the two balances
+        assertEq(balanceBefore + value - PRICE_IN_WEI, balanceAfter); // Compare the two balances
     }
 
     // Test that the mint function reverts if the value sent is less than the price
@@ -114,7 +114,7 @@ contract JuiceboxCardsTest is Test, ERC1155Receiver {
     }
 
     // Test that the withdraw function works to an EOA
-    function testWithdraw() public {
+    function testWithdrawFee() public {
         juiceboxCards.mint{value: PRICE_IN_WEI * 10}(10); // Mint an NFT
         uint contractBalance = address(juiceboxCards).balance; // Get balance of the project after minting
         uint revenueRecipientBalance = address(REVENUE_RECIPIENT).balance; // Get balance of the revenue recipient before withdrawing
@@ -182,6 +182,56 @@ contract JuiceboxCardsTest is Test, ERC1155Receiver {
             juiceboxCards.supportsInterface(unsupportedInterfaceId),
             false
         );
+    }
+
+    /// Test that the developer can mint, then loses the ability after renouncing the role
+    function testDevMintRole() public {
+        // Assume that the address of the developer is stored in devAddress
+        address devAddress = address(this); // replace with actual address
+        address[] memory to = new address[](1);
+        to[0] = devAddress; // The address to mint to
+
+        uint256[] memory projectIds = new uint256[](1);
+        projectIds[0] = 1; // The project id
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 1; // The amount to mint
+
+        // Make sure the dev has the mint role
+        assertEq(
+            juiceboxCards.hasRole(juiceboxCards.DEV_MINTER_ROLE(), devAddress),
+            true
+        );
+
+        // Start a transaction from the dev address
+        vm.startPrank(devAddress);
+
+        // Mint from the dev address
+        juiceboxCards.devMint(to, projectIds, amounts);
+
+        // Check that the minting worked
+        assertEq(
+            juiceboxCards.balanceOf(devAddress, projectIds[0]),
+            amounts[0]
+        );
+
+        // Now, renounce the role
+        juiceboxCards.renounceRole(juiceboxCards.DEV_MINTER_ROLE(), devAddress);
+
+        // Check that the dev no longer has the mint role
+        assertEq(
+            juiceboxCards.hasRole(juiceboxCards.DEV_MINTER_ROLE(), devAddress),
+            false
+        );
+
+        // Expect a revert when minting now
+        vm.expectRevert("devMint: must have dev mint role to mint");
+
+        // Attempt to mint from the dev address
+        juiceboxCards.devMint(to, projectIds, amounts);
+
+        // Stop the transaction
+        vm.stopPrank();
     }
 
     /*//////////////////////////////////////////////////////////////

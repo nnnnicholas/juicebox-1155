@@ -11,6 +11,10 @@ OpenSea: https://opensea.io/collection/juicebox-project-cards
 - Update `.env.example` with your API keys and rename to `.env`
 - Run `forge install && yarn`
 
+## Test
+- Fill out `.env.example` with your API keys and rename to `.env`. Only the Etherscan API key is required for testing.
+- Run `forge test`
+
 ## Deploy
 `forge script script/Goerli_Deploy.s.sol --rpc-url $GOERLI_RPC_URL --broadcast --verify` or the equivalent replacing both mentions of Goerli with Mainnet
 
