@@ -161,7 +161,7 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
             )
         {} catch {
             // If pay returns an error, add to balance instead
-            _ethTerminal.addToBalanceOf(
+            _ethTerminal.addToBalanceOf{value: price}(
                 projectId,
                 price,
                 JBTokens.ETH,
@@ -172,7 +172,6 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
 
         // If the msg.value is greater than the price, pay the tip to the tip project.
         if (msg.value > price) {
-            // Pay the tip treasury
             // Pay the tip project.
             try
                 ethTipTerminal.pay{value: address(this).balance}(
@@ -188,7 +187,7 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
             {} catch {
                 // If pay returns an error, add to balance instead
                 try
-                    ethTipTerminal.addToBalanceOf(
+                    ethTipTerminal.addToBalanceOf{value: address(this).balance}(
                         tipProject,
                         address(this).balance,
                         JBTokens.ETH,
