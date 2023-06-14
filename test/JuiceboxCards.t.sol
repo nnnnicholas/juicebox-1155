@@ -70,13 +70,38 @@ contract JuiceboxCardsTest is Test, ERC1155Receiver {
                                  TESTS
     //////////////////////////////////////////////////////////////*/
 
-    // Test that you can mint an NFT
+    // Test to establish average gas cost for minting 1 NFT across cases
+    function testMintGasPayNoTip() public {
+        juiceboxCards.mint{value: PRICE_IN_WEI}(1, msg.sender, msg.sender);
+    }
+
+    function testMintGasPayWithTip() public {
+        juiceboxCards.mint{value: PRICE_IN_WEI + 1000}(
+            1,
+            msg.sender,
+            msg.sender
+        );
+    }
+
+    function testMintGasAddToBalanceNoTip() public {
+        juiceboxCards.mint{value: PRICE_IN_WEI}(350, msg.sender, msg.sender);
+    }
+
+    function testMintGasAddToBalanceWithTip() public {
+        juiceboxCards.mint{value: PRICE_IN_WEI + 1000}(
+            350,
+            msg.sender,
+            msg.sender
+        );
+    }
+
+    // Exhaustively test that you can mint an NFT
     /// forge-config: default.fuzz.runs = 10000
-    function testMint(uint value, uint id) public {
+    function testMintOne(uint value, uint id) public {
         // Set vars
         value = bound(value, PRICE_IN_WEI, 10 ether); // Assume that value is is greater than the price (0.01 ETH) and less than 100 ETH
         id = bound(id, 1, jbProjectsCount); // Assume that the project ID is greater than 0 and less than the total supply of JBProjects
-        vm.assume(id != 297 && id != 350); // Projects with known issues, not expected to work
+        vm.assume(id != 297 && id != 350); // Projects with known issues, not expected to work. 297 has mismatched payment terminal, 350 is paused.
         vm.assume(
             address(JBDIRECTORY.primaryTerminalOf(id, JBTokens.ETH)) !=
                 address(0)
@@ -152,18 +177,49 @@ contract JuiceboxCardsTest is Test, ERC1155Receiver {
     }
 
     // Test that the mint function reverts if the value sent is less than the price
-    function testMintInsufficientFunds(uint x) public {
-        x = bound(x, 1, PRICE_IN_WEI); // Assume thaht x is greater than zero but less than price of 1 NFT
-        vm.deal(address(420), x * PRICE_IN_WEI); // Send 420 x ETH
+    function testMintInsufficientFunds() public {
+        vm.deal(address(420), 1 ether); // Send 420 x ETH
         vm.startPrank(address(420)); // Set the prank address to 420
         vm.expectRevert(JuiceboxCards.InsufficientFunds.selector);
-        // juiceboxCards.mint{value: PRICE_IN_WEI - x}(1); // Mint an NFT
+        juiceboxCards.mint{value: 1}(1, address(420), address(420)); // Mint an NFT
+        vm.stopPrank();
+    }
+
+    // Test that the mint function falls back to `addToBalance` if the project cannot be paid with `pay`
+    function testMintAddToBalance() public {
+        uint knownUnpayableProject = 350; // Cannot pay this project
+        vm.deal(address(420), 1 ether); // Send 420 1 ETH
+        vm.startPrank(address(420)); // Set the prank address to 420
+        juiceboxCards.mint{value: PRICE_IN_WEI}(
+            knownUnpayableProject,
+            address(420),
+            address(420)
+        ); // Mint an NFT
+        vm.stopPrank();
+    }
+
+    // Test that the mint function reverts if the project cannot be paid with `pay` or `addToBalance`
+    function testMintCannotPay() public {
+        uint knownUnpayableProject = 297; // Cannot pay or add to balance this project
+        vm.deal(address(420), 1 ether); // Send 420 1 ETH
+        vm.startPrank(address(420)); // Set the prank address to 420
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                JuiceboxCards.CannotPay.selector,
+                knownUnpayableProject
+            )
+        );
+        juiceboxCards.mint{value: PRICE_IN_WEI}(
+            knownUnpayableProject,
+            address(420),
+            address(420)
+        ); // Mint an NFT
         vm.stopPrank();
     }
 
     // Test that the uri returns expeted value
     function testUri() public {
-        testMint(1, 1); // Mint NFT for project 1, giving the minter 1 eth budget
+        testMintOne(1, 1); // Mint NFT for project 1, giving the minter 1 eth budget
         string memory uriFromJBProjects = JBProjects(JBPROJECTS).tokenURI(1);
         string memory uriFromContract = juiceboxCards.uri(1);
     }

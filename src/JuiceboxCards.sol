@@ -27,8 +27,17 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
                              ERRORS 
     //////////////////////////////////////////////////////////////*/
 
+    /// @notice Insufficient funds to mint a Card
     error InsufficientFunds();
+
+    /// @notice Cannot pay the project
+    /// @param _projectId The ID of the project that cannot be paid
+    error CannotPay(uint _projectId);
+
+    /// @notice Function access is restricted to the dev minter role
     error NotDevMinter();
+
+    /// @notice Input arrays must be of equal length
     error UnequalLengthArrays();
 
     /*//////////////////////////////////////////////////////////////
@@ -60,6 +69,9 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
 
     /// @dev Emitted when the contract metadata URI is set
     event ContractUriSet(string _contractUri);
+
+    /// @dev Emitted when a Card cannot be minted because a project cannot be paid
+    event PayFailed(uint _projectId);
 
     /// @dev Emitted when the directory address is set
     event DirectorySet(address _directory);
@@ -161,13 +173,18 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
             )
         {} catch {
             // If pay returns an error, add to balance instead
-            _ethTerminal.addToBalanceOf{value: price}(
-                projectId,
-                price,
-                JBTokens.ETH,
-                "Juicebox Card minted",
-                _payMetadata
-            );
+            try
+                _ethTerminal.addToBalanceOf{value: price}(
+                    projectId,
+                    price,
+                    JBTokens.ETH,
+                    "Juicebox Card minted",
+                    _payMetadata
+                )
+            {} catch {
+                emit PayFailed(projectId);
+                revert CannotPay(projectId);
+            }
         }
 
         // If the msg.value is greater than the price, pay the tip to the tip project.
