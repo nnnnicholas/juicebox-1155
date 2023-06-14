@@ -8,25 +8,37 @@ import {IERC1155, ERC1155, IERC165} from "@openzeppelin/contracts/token/ERC1155/
 import {IERC721Metadata} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {IJBDirectory} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBDirectory.sol";
+import {IJBTiered721Delegate} from "@jbx-protocol/juice-721-delegate/contracts/interfaces/IJBTiered721Delegate.sol";
 import {JBTokens} from "@jbx-protocol/juice-contracts-v3/contracts/libraries/JBTokens.sol";
 import {IJBPaymentTerminal} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBPaymentTerminal.sol";
 import {Config} from "src/Structs/Config.sol";
 
 /*//////////////////////////////////////////////////////////////
-                             ERRORS 
-//////////////////////////////////////////////////////////////*/
-
-error InsufficientFunds();
-
-/*//////////////////////////////////////////////////////////////
                              CONTRACT 
  //////////////////////////////////////////////////////////////*/
 
-contract JuiceboxCards is ERC1155, Ownable, AccessControl {
+contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
     using Strings for uint256;
+    /*//////////////////////////////////////////////////////////////
+                             ERRORS 
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Insufficient funds to mint a Card
+    error InsufficientFunds();
+
+    /// @notice Cannot pay the project
+    /// @param _projectId The ID of the project that cannot be paid
+    error CannotPay(uint _projectId);
+
+    /// @notice Function access is restricted to the dev minter role
+    error NotDevMinter();
+
+    /// @notice Input arrays must be of equal length
+    error UnequalLengthArrays();
 
     /*//////////////////////////////////////////////////////////////
                                  ACCESS
@@ -35,15 +47,10 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl {
     bytes32 public constant DEV_MINTER_ROLE = keccak256("DEV_MINTER_ROLE");
 
     modifier onlyDevMinter() {
-        require(
-            hasRole(DEV_MINTER_ROLE, msg.sender),
-            "Must have dev minter role"
-        );
+        if (hasRole(DEV_MINTER_ROLE, msg.sender) == false) {
+            revert NotDevMinter();
+        }
         _;
-    }
-
-    function renounceDevMinter() public {
-        renounceRole(DEV_MINTER_ROLE, msg.sender);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -53,17 +60,23 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl {
     /// @dev Emitted when the price of the NFT is set
     event PriceSet(uint256 _price);
 
-    /// @dev Emitted when the fee recipient address is set
-    event FeeRecipientSet(address _feeRecipient);
-
     /// @dev Emitted when the JBProjects contract address is set
-    event MetadataSet(address _JBProjects);
+    event JBProjectsSet(address _JBProjects);
 
     /// @dev Emitted when the contract metadata URI is set
     event ContractUriSet(string _contractUri);
 
-    /// @dev Emitted when fees are withdrawn
-    event WithdrewFees(address _feeRecipient, uint256 _amount);
+    /// @dev Emitted when a Card cannot be minted because a project cannot be paid
+    event PayFailed(uint _projectId);
+
+    /// @dev Emitted when the directory address is set
+    event DirectorySet(address _directory);
+
+    /// @dev Emited when the tip recipient project ID is set
+    event TipProjectSet(uint256 _tipProject);
+
+    /// @dev Emitted when the tip terminal is set
+    event TipTerminalSet(address indexed newTerminal);
 
     /*//////////////////////////////////////////////////////////////
                            STORAGE VARIABLES
@@ -75,14 +88,17 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl {
     /// @dev The address of the JBDirectory contract
     IJBDirectory public directory;
 
-    /// @dev The address that receives fees
-    address payable public feeRecipient;
+    /// @dev The project that receives tips
+    uint256 public tipProject;
 
     /// @dev The price to buy a Card in wei
     uint256 public price;
 
     /// @dev The URI of the contract metadata
-    string private contractUri;
+    string public contractUri;
+
+    /// @dev The tip project's primary eth terminal of the
+    IJBPaymentTerminal public ethTipTerminal;
 
     /*//////////////////////////////////////////////////////////////
                              CONSTRUCTOR
@@ -90,87 +106,126 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl {
 
     constructor(Config memory _config) ERC1155("") {
         _setupRole(DEV_MINTER_ROLE, msg.sender);
-        setMetadata(_config.jbProjects);
-        setFeeRecipient(_config.feeRecipient);
-        setPrice(_config.price);
-        setContractUri(_config.contractUri);
-        setDirectory(_config.directory);
+        setJBProjects(_config.jbProjects); // Set the JBProjects contract that is the metadata source
+        setDirectory(_config.directory); // Set the JBDirectory contract
+        setPrice(_config.price); // Set the Card price
+        setContractUri(_config.contractUri); // Set the contract metadata URI
+        setTipProject(_config.tipProject); // Set the project that receives tips and the tip terminal
     }
 
     /*//////////////////////////////////////////////////////////////
-                       EXTERNAL/PUBLIC FUNCTIONS
+                       EXTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Mints a Card to the caller
-     * @param projectId The ID of the project card to mint
+     * @notice Mints a Card to the beneficiary, pays the project the price, sends any excess msg.value to the tip project, and sends any tip project tokens to the tipBeneficiary.
+     * @dev Projects must have a primary ETH terminal on the current JBDirectory, or else mints will revert.
+     * @dev Sensible default: pass the msg.sender as both beneficiary and tipBeneficiary.
+     * @param projectId The ID of the project to mint a Card for
+     * @param beneficiary The address to mint the Card to
+     * @param tipBeneficiary The address that receives tokens from the tip project
      */
-    function mint(uint256 projectId) external payable {
+    function mint(
+        uint256 projectId,
+        address beneficiary,
+        address tipBeneficiary
+    ) external payable nonReentrant {
         if (msg.value < price) {
             revert InsufficientFunds();
         }
 
+        // Mint the NFT.
+        _mint(beneficiary, projectId, 1, bytes(""));
+
         // Get the payment terminal the project currently prefers to accept ETH through.
         IJBPaymentTerminal _ethTerminal = directory.primaryTerminalOf(
             projectId,
             JBTokens.ETH
         );
 
-        // Pay the project.
-        _ethTerminal.pay{value: price}(
-            projectId,
-            price,
-            JBTokens.ETH,
-            msg.sender,
-            0,
-            false,
-            "Juicebox Card minted",
-            bytes("")
-        );
-
-        // Mint the NFT.
-        _mint(msg.sender, projectId, 1, bytes(""));
-    }
-
-    /**
-     * @notice Mints multiple Cards to the caller
-     * @param projectId The ID of the project card to mint
-     * @param amount The amount of NFTs to mint
-     */
-    function mintMany(uint256 projectId, uint256 amount) external payable {
-        if (msg.value < price * amount) {
-            revert InsufficientFunds();
+        // If the project doesn't have a payment terminal configured, revert.
+        if (_ethTerminal == IJBPaymentTerminal(address(0))) {
+            revert("JuiceboxCards: Project must configure JBDirectory V3");
         }
 
-        // Get the payment terminal the project currently prefers to accept ETH through.
-        IJBPaymentTerminal _ethTerminal = directory.primaryTerminalOf(
-            projectId,
-            JBTokens.ETH
+        // Create the metadata for the payment
+        bytes memory _payMetadata = abi.encode(
+            bytes32(tipProject), // Referral project ID.
+            bytes32(0),
+            bytes4(0)
         );
 
         // Pay the project.
-        _ethTerminal.pay{value: price * amount}(
-            projectId,
-            price * amount,
-            JBTokens.ETH,
-            msg.sender,
-            0,
-            false,
-            string.concat(amount.toString(), " Juicebox Cards minted"),
-            bytes("")
-        );
+        try
+            _ethTerminal.pay{value: price}(
+                projectId,
+                price,
+                JBTokens.ETH,
+                beneficiary,
+                0,
+                false,
+                "Juicebox Card minted",
+                _payMetadata
+            )
+        {} catch {
+            // If pay returns an error, add to balance instead
+            try
+                _ethTerminal.addToBalanceOf{value: price}(
+                    projectId,
+                    price,
+                    JBTokens.ETH,
+                    "Juicebox Card minted",
+                    _payMetadata
+                )
+            {} catch {
+                emit PayFailed(projectId);
+                revert CannotPay(projectId);
+            }
+        }
 
-        // Mint the NFTs.
-        _mint(msg.sender, projectId, amount, bytes(""));
+        // If the msg.value is greater than the price, pay the tip to the tip project.
+        if (msg.value > price) {
+            // Pay the tip project.
+            try
+                ethTipTerminal.pay{value: address(this).balance}(
+                    tipProject,
+                    address(this).balance,
+                    JBTokens.ETH,
+                    tipBeneficiary,
+                    0,
+                    false,
+                    "Juicebox Card tip",
+                    _payMetadata // reuse the same metadata
+                )
+            {} catch {
+                // If pay returns an error, add to balance instead
+                try
+                    ethTipTerminal.addToBalanceOf{value: address(this).balance}(
+                        tipProject,
+                        address(this).balance,
+                        JBTokens.ETH,
+                        "Juicebox Card tip",
+                        _payMetadata // reuse the same metadata
+                    )
+                {} catch {
+                    // If addToBalanceOf returns an error, leave the ETH in the contract. It will be paid to the tip project with the next successful mint.
+                }
+            }
+        }
     }
 
+    /*//////////////////////////////////////////////////////////////
+                            PUBLIC FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
     /**
-     * @notice Transfers accumulated fees to the fee recipient
+     * @notice Sets the tip project's primary ETH terminal
      */
-    function withdrawFees() external {
-        uint256 balance = address(this).balance;
-        Address.sendValue(feeRecipient, balance);
-        emit WithdrewFees(feeRecipient, balance);
+    function setTipTerminal() public {
+        // Get the payment terminal the project currently prefers to accept ETH through.
+        ethTipTerminal = directory.primaryTerminalOf(tipProject, JBTokens.ETH);
+
+        emit TipTerminalSet(address(ethTipTerminal));
     }
 
     /**
@@ -210,35 +265,40 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Sets the price of the NFT
-     * @param _price The price of the NFT in wei
+     * @notice Sets the Card price
+     * @param _price The Card price in wei
      */
-    function setPrice(uint256 _price) public onlyOwner {
-        price = _price;
+    function setPrice(uint64 _price) public onlyOwner {
+        price = uint256(_price);
         emit PriceSet(_price);
     }
 
     /**
-     * @notice Sets the address that receives mint fees
-     * @dev Ideally a JBProjectPayer contract whose receive() function forwards fees to a Juicebox Project
-     * @param _feeRecipient The address that receives mint fees
+     * @notice Sets the project that receives tips
+     * @param _tipProject The address that receives mint tips
      */
-    function setFeeRecipient(address _feeRecipient) public onlyOwner {
-        feeRecipient = payable(_feeRecipient);
-        emit FeeRecipientSet(_feeRecipient);
+    function setTipProject(uint16 _tipProject) public onlyOwner {
+        tipProject = uint256(_tipProject);
+        emit TipProjectSet(_tipProject);
+        setTipTerminal();
     }
 
     /**
      * @notice Sets the address of the JBProjects contract from which to get the NFT URI
      * @param _JBProjects The address of the JBProjects contract
      */
-    function setMetadata(address _JBProjects) public onlyOwner {
+    function setJBProjects(address _JBProjects) public onlyOwner {
         jbProjects = IERC721Metadata(_JBProjects);
-        emit MetadataSet(_JBProjects);
+        emit JBProjectsSet(_JBProjects);
     }
 
+    /**
+     * @notice Sets the address of the JBDirectory contract from which to get the payment terminal
+     * @param _directory The address of the JBDirectory contract
+     */
     function setDirectory(address _directory) public onlyOwner {
         directory = IJBDirectory(_directory);
+        emit DirectorySet(_directory);
     }
 
     /**
@@ -261,11 +321,12 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl {
         uint256[] calldata projectIds,
         uint256[] calldata amounts
     ) external onlyDevMinter {
-        require(
-            to.length == projectIds.length &&
-                projectIds.length == amounts.length,
-            "Input arrays must have the same length"
-        );
+        if (
+            to.length != projectIds.length ||
+            projectIds.length != amounts.length
+        ) {
+            revert UnequalLengthArrays();
+        }
         for (uint256 i = 0; i < to.length; i++) {
             _mint(to[i], projectIds[i], amounts[i], bytes(""));
         }
