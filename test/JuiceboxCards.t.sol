@@ -163,7 +163,7 @@ contract JuiceboxCardsTest is Test, ERC1155Receiver {
 
     // Test that the uri returns expeted value
     function testUri() public {
-        testMintOne(1, 1); // Mint NFT for project 1, giving the minter 1 eth budget
+        testMint(1, 1); // Mint NFT for project 1, giving the minter 1 eth budget
         string memory uriFromJBProjects = JBProjects(JBPROJECTS).tokenURI(1);
         string memory uriFromContract = juiceboxCards.uri(1);
     }
