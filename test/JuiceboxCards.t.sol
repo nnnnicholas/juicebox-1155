@@ -217,11 +217,20 @@ contract JuiceboxCardsTest is Test, ERC1155Receiver {
         vm.stopPrank();
     }
 
+    // Test minting the tip project
+    function testMintTipProject() public {
+        testMintOne(1, TIP_PROJECT); // Mint NFT for tip project
+    }
+
     // Test that the uri returns expeted value
     function testUri() public {
         testMintOne(1, 1); // Mint NFT for project 1, giving the minter 1 eth budget
         string memory uriFromJBProjects = JBProjects(JBPROJECTS).tokenURI(1);
         string memory uriFromContract = juiceboxCards.uri(1);
+
+        // hide unused variables warnings
+        uriFromJBProjects;
+        uriFromContract;
     }
 
     // Test that contractUri is correctly set in constructor
@@ -357,6 +366,12 @@ contract JuiceboxCardsTest is Test, ERC1155Receiver {
         uint256 value,
         bytes calldata data
     ) external pure returns (bytes4) {
+        // hide unused variables warnings
+        operator;
+        from;
+        id;
+        value;
+        data;
         return bytes4(0xf23a6e61);
     }
 
@@ -366,7 +381,13 @@ contract JuiceboxCardsTest is Test, ERC1155Receiver {
         uint256[] calldata ids,
         uint256[] calldata values,
         bytes calldata data
-    ) external returns (bytes4) {
+    ) external pure returns (bytes4) {
+        // hide unused variables warnings
+        operator;
+        from;
+        ids;
+        values;
+        data;
         return bytes4(0xf23a6e61);
     }
 }
