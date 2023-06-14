@@ -243,6 +243,29 @@ contract JuiceboxCardsTest is Test, ERC1155Receiver {
         assertEq(contractUri, "abc");
     }
 
+    // Test that onlyOwner functions work if called by owner
+    function testOnlyOwnerFunctions() public {
+        // Set price
+        juiceboxCards.setPrice(0);
+        assertEq(juiceboxCards.price(), 0);
+
+        // Set revenue recipient
+        juiceboxCards.setTipProject(11);
+        assertEq(juiceboxCards.tipProject(), 11);
+
+        // Set metadata URI
+        juiceboxCards.setJBProjects(address(420));
+        assertEq(address(juiceboxCards.jbProjects()), address(420));
+
+        // Set Directory
+        juiceboxCards.setDirectory(address(420));
+        assertEq(address(juiceboxCards.directory()), address(420));
+
+        // Set contract URI
+        juiceboxCards.setContractUri("abc");
+        assertEq(juiceboxCards.contractURI(), "abc");
+    }
+
     // Test that onlyOwner functions fail if called by non-owner
     function testOnlyOwnerFunctionsFails() public {
         vm.startPrank(address(420));
