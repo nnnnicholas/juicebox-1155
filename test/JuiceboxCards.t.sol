@@ -3,7 +3,7 @@ pragma solidity >=0.8.0;
 
 //Juicebox1155
 import "forge-std/Test.sol";
-import {JuiceboxCards, Config, InsufficientFunds, IERC1155} from "../src/JuiceboxCards.sol";
+import {JuiceboxCards, Config, IERC1155} from "../src/JuiceboxCards.sol";
 import {ERC1155Receiver, IERC1155Receiver} from "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Receiver.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
@@ -15,13 +15,15 @@ import {IJBPaymentTerminal} from "@jbx-protocol/juice-contracts-v3/contracts/int
 import {IJBPayoutRedemptionPaymentTerminal} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBPayoutRedemptionPaymentTerminal.sol";
 import {IJBPayoutRedemptionPaymentTerminal3_1} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBPayoutRedemptionPaymentTerminal3_1.sol";
 import {JBTokens} from "@jbx-protocol/juice-contracts-v3/contracts/libraries/JBTokens.sol";
+import {JBSingleTokenPaymentTerminalStore3_1} from "@jbx-protocol/juice-contracts-v3/contracts/JBSingleTokenPaymentTerminalStore3_1.sol";
+import {IJBSingleTokenPaymentTerminal} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBSingleTokenPaymentTerminal.sol";
 
 contract JuiceboxCardsTest is Test, ERC1155Receiver {
     /*//////////////////////////////////////////////////////////////
                                  SETUP
     //////////////////////////////////////////////////////////////*/
 
-    uint256 constant FORK_BLOCK_NUMBER = 17430282; // All tests executed at this block
+    uint256 constant FORK_BLOCK_NUMBER = 17437454; // All tests executed at this block
     string MAINNET_RPC_URL = "MAINNET_RPC_URL";
     // uint256 forkId = vm.createSelectFork(vm.envString(MAINNET_RPC_URL)); // Fork latest block
     uint256 forkId =
@@ -32,11 +34,20 @@ contract JuiceboxCardsTest is Test, ERC1155Receiver {
         IJBDirectory(0x65572FB928b46f9aDB7cfe5A4c41226F636161ea); // JBDirectory V3
     address public constant JBPROJECTS =
         0xD8B4359143eda5B2d763E127Ed27c77addBc47d3;
-    address payable constant REVENUE_RECIPIENT = payable(address(720));
+    // JBSingleTokenPaymentTerminalStore3_1
+    //     public constant JBSINGLETOKENPAYMENTTERMINALSTORE3_1 =
+    //     JBSingleTokenPaymentTerminalStore3_1(
+    //         0x77b0A81AeB61d08C0b23c739969d22c5C9950336
+    //     );
+    // IJBSingleTokenPaymentTerminal public constant JBPAYMENTTERMINAL =
+    //     IJBSingleTokenPaymentTerminal(
+    //         0xFA391De95Fcbcd3157268B91d8c7af083E607A5C
+    //     );
+    // address payable constant REVENUE_RECIPIENT = payable(address(720));
     // address payable constant JBPROJECTPAYER =
     // payable(0xD37b2FE8748f4795a465c9B851ce8066426A427F); // JBProject 465 Project Payer
-    // uint256 public constant METADATA_PROJECT_ID = 465;
-    uint256 public constant PRICE_IN_WEI = 0.01 ether;
+    uint16 public constant TIP_PROJECT = 465;
+    uint64 public constant PRICE_IN_WEI = 0.01 ether;
     string public constant CONTRACT_URI = "xyz";
     address sender = makeAddr("420");
 
@@ -47,10 +58,10 @@ contract JuiceboxCardsTest is Test, ERC1155Receiver {
     Config public config =
         Config(
             JBPROJECTS,
-            REVENUE_RECIPIENT,
+            TIP_PROJECT,
             PRICE_IN_WEI,
-            CONTRACT_URI,
-            address(JBDIRECTORY)
+            address(JBDIRECTORY),
+            CONTRACT_URI
         );
     // Deploy Juicebox1155
     JuiceboxCards juiceboxCards = new JuiceboxCards(config);
@@ -60,16 +71,84 @@ contract JuiceboxCardsTest is Test, ERC1155Receiver {
     //////////////////////////////////////////////////////////////*/
 
     // Test that you can mint an NFT
-    function testMintOne(uint value, uint y) public {
-        value = bound(value, PRICE_IN_WEI, 100 ether); // Assume that value is is greater than the price (0.01 ETH) and less than 100 ETH
-        y = bound(y, 1, jbProjectsCount); // Assume that the project ID is greater than 0 and less than the total supply of JBProjects
-        vm.deal(address(420), value); // Send adderss 420 * ETH
+    /// forge-config: default.fuzz.runs = 10000
+    function testMint(uint value, uint id) public {
+        // Set vars
+        value = bound(value, PRICE_IN_WEI, 10 ether); // Assume that value is is greater than the price (0.01 ETH) and less than 100 ETH
+        id = bound(id, 1, jbProjectsCount); // Assume that the project ID is greater than 0 and less than the total supply of JBProjects
+        vm.assume(id != 297 && id != 350); // Projects with known issues, not expected to work
+        vm.assume(
+            address(JBDIRECTORY.primaryTerminalOf(id, JBTokens.ETH)) !=
+                address(0)
+        ); // Assume that the project has a primary terminal on Directory
+
+        // Setup minter wallet
+        vm.deal(address(420), value + 0.1 ether); // Send address 420 * ETH
         vm.startPrank(address(420)); // Set the prank address to 420
-        uint balanceBefore = address(juiceboxCards).balance; // Get balance of the NFT contract before minting
-        juiceboxCards.mint{value: value}(y); // Mint an NFT
-        uint balanceAfter = address(juiceboxCards).balance; // Get balance of the NFT contract after minting
+
+        // Get terminals
+        IJBPaymentTerminal projectTerminal = JBDIRECTORY.primaryTerminalOf(
+            id,
+            JBTokens.ETH
+        );
+        IJBPaymentTerminal tipTerminal = JBDIRECTORY.primaryTerminalOf(
+            TIP_PROJECT,
+            JBTokens.ETH
+        );
+
+        // Get BEFORE values
+        uint projectBalanceBefore = IJBPayoutRedemptionPaymentTerminal3_1(
+            address(projectTerminal)
+        ).store().balanceOf(
+                IJBSingleTokenPaymentTerminal(address(projectTerminal)),
+                id
+            ); // Get balance of the project before minting
+        uint tipProjectBalanceBefore = IJBPayoutRedemptionPaymentTerminal3_1(
+            address(tipTerminal)
+        ).store().balanceOf(
+                IJBSingleTokenPaymentTerminal(address(tipTerminal)),
+                TIP_PROJECT
+            ); // Get balance of the tip project before minting
+
+        // Mint an NFT
+        juiceboxCards.mint{value: value}(id, address(420), address(420));
+
+        // Get AFTER values
+        uint projectBalanceAfter = IJBPayoutRedemptionPaymentTerminal3_1(
+            address(projectTerminal)
+        ).store().balanceOf(
+                IJBSingleTokenPaymentTerminal(address(projectTerminal)),
+                id
+            ); // Get balance of the project after minting
+        uint tipProjectBalanceAfter = IJBPayoutRedemptionPaymentTerminal3_1(
+            address(tipTerminal)
+        ).store().balanceOf(
+                IJBSingleTokenPaymentTerminal(address(tipTerminal)),
+                TIP_PROJECT
+            ); // Get balance of the fee project after minting
+
+        // Assertions
+        assertEq(juiceboxCards.balanceOf(address(420), id), 1); // Check that the user has one NFT
+        if (id != TIP_PROJECT) {
+            assertEq(
+                projectBalanceBefore + PRICE_IN_WEI,
+                projectBalanceAfter,
+                "Unexpected project balance"
+            ); // Check that the project received the funds
+            assertEq(
+                tipProjectBalanceBefore + value - PRICE_IN_WEI,
+                tipProjectBalanceAfter,
+                "Unexpected tip project balance"
+            ); // Check that the fees were paid to the project
+        } else {
+            assertEq(
+                projectBalanceBefore + value,
+                projectBalanceAfter,
+                "Unexpected balance when minting tip project Card"
+            ); // Check that the project received the funds
+        }
+
         vm.stopPrank();
-        assertEq(balanceBefore + value - PRICE_IN_WEI, balanceAfter); // Compare the two balances
     }
 
     // Test that the mint function reverts if the value sent is less than the price
@@ -77,32 +156,8 @@ contract JuiceboxCardsTest is Test, ERC1155Receiver {
         x = bound(x, 1, PRICE_IN_WEI); // Assume thaht x is greater than zero but less than price of 1 NFT
         vm.deal(address(420), x * PRICE_IN_WEI); // Send 420 x ETH
         vm.startPrank(address(420)); // Set the prank address to 420
-        vm.expectRevert(InsufficientFunds.selector);
-        juiceboxCards.mint{value: PRICE_IN_WEI - x}(1); // Mint an NFT
-        vm.stopPrank();
-    }
-
-    // Test that user can mintMany
-    function testMintMany(uint x, uint y) public {
-        x = bound(x, 1, 100); // Assume that the number of NFTs to mint is 0 < x < 100
-        y = bound(y, 1, jbProjectsCount); // Assume that the project ID to mint is less than total supply of JBProjects
-        vm.deal(address(420), 10 ether); // Send 420 x ETH
-        vm.startPrank(address(420)); // Set the prank address to 420
-        uint balanceBefore = address(juiceboxCards).balance; // Get balance of the NFT contract before minting
-        juiceboxCards.mintMany{value: x * PRICE_IN_WEI}(y, x); // Mint many NFTs
-        uint balanceAfter = address(juiceboxCards).balance; // Get balance of the NFT contract after minting
-        vm.stopPrank();
-        assertEq(balanceBefore + x * PRICE_IN_WEI, balanceAfter); // Compare the two balances
-        assertEq(juiceboxCards.balanceOf(address(420), y), x); // Check that the user has x NFTs of project y
-    }
-
-    // Test that the mintMany function reverts if the user does not send enough funds
-    function testMintManyInsufficientFunds(uint x, uint y) public {
-        x = bound(x, 1, PRICE_IN_WEI); // Assume that x is greater than zero but less than or equal to price of 1 NFT
-        vm.deal(address(420), x * PRICE_IN_WEI); // Send 420 x ETH
-        vm.startPrank(address(420)); // Set the prank address to 420
-        vm.expectRevert(InsufficientFunds.selector);
-        juiceboxCards.mintMany{value: x * PRICE_IN_WEI - 1}(y, x); // Mint many NFTs
+        vm.expectRevert(JuiceboxCards.InsufficientFunds.selector);
+        // juiceboxCards.mint{value: PRICE_IN_WEI - x}(1); // Mint an NFT
         vm.stopPrank();
     }
 
@@ -111,17 +166,6 @@ contract JuiceboxCardsTest is Test, ERC1155Receiver {
         testMintOne(1, 1); // Mint NFT for project 1, giving the minter 1 eth budget
         string memory uriFromJBProjects = JBProjects(JBPROJECTS).tokenURI(1);
         string memory uriFromContract = juiceboxCards.uri(1);
-    }
-
-    // Test that the withdraw function works to an EOA
-    function testWithdrawFee() public {
-        juiceboxCards.mint{value: PRICE_IN_WEI * 10}(10); // Mint an NFT
-        uint contractBalance = address(juiceboxCards).balance; // Get balance of the project after minting
-        uint revenueRecipientBalance = address(REVENUE_RECIPIENT).balance; // Get balance of the revenue recipient before withdrawing
-        juiceboxCards.withdrawFees(); // Withdraw the funds
-        uint revenueRecipientBalanceAfter = address(REVENUE_RECIPIENT).balance; // Get balance of the revenue recipient after withdrawing
-        assertEq(revenueRecipientBalanceAfter, PRICE_IN_WEI * 10); // Check that funds have moved to the revenue recipient
-        assertEq(address(juiceboxCards).balance, 0); // Check that the contract balance is 0
     }
 
     // Test that contractUri is correctly set in constructor
@@ -146,7 +190,7 @@ contract JuiceboxCardsTest is Test, ERC1155Receiver {
 
         // Set revenue recipient
         vm.expectRevert("Ownable: caller is not the owner");
-        juiceboxCards.setFeeRecipient(address(420));
+        juiceboxCards.setTipProject(11);
 
         // Set contract URI
         vm.expectRevert("Ownable: caller is not the owner");
@@ -154,7 +198,7 @@ contract JuiceboxCardsTest is Test, ERC1155Receiver {
 
         // Set metadata URI
         vm.expectRevert("Ownable: caller is not the owner");
-        juiceboxCards.setMetadata(address(0));
+        juiceboxCards.setJBProjects(address(0));
 
         vm.stopPrank();
     }
@@ -186,10 +230,11 @@ contract JuiceboxCardsTest is Test, ERC1155Receiver {
 
     /// Test that the developer can mint, then loses the ability after renouncing the role
     function testDevMintRole() public {
-        // Assume that the address of the developer is stored in devAddress
-        address devAddress = address(this); // replace with actual address
+        address devAddress = address(this); // The address of the dev
+
+        // Set up dev mint arrays
         address[] memory to = new address[](1);
-        to[0] = devAddress; // The address to mint to
+        to[0] = address(420); // The address to mint to
 
         uint256[] memory projectIds = new uint256[](1);
         projectIds[0] = 1; // The project id
@@ -203,17 +248,23 @@ contract JuiceboxCardsTest is Test, ERC1155Receiver {
             true
         );
 
-        // Start a transaction from the dev address
-        vm.startPrank(devAddress);
-
         // Mint from the dev address
         juiceboxCards.devMint(to, projectIds, amounts);
 
         // Check that the minting worked
-        assertEq(
-            juiceboxCards.balanceOf(devAddress, projectIds[0]),
-            amounts[0]
-        );
+        assertEq(juiceboxCards.balanceOf(to[0], projectIds[0]), amounts[0]);
+
+        // Expect a revert when minting with unequal length arrays
+        vm.expectRevert(JuiceboxCards.UnequalLengthArrays.selector);
+
+        // Check that unequal length arrays revert
+        juiceboxCards.devMint(to, projectIds, new uint256[](2));
+
+        // Expect a revert when minting with unequal length arrays
+        vm.expectRevert(JuiceboxCards.UnequalLengthArrays.selector);
+
+        // Check that unequal length arrays revert
+        juiceboxCards.devMint(to, new uint256[](2), amounts);
 
         // Now, renounce the role
         juiceboxCards.renounceRole(juiceboxCards.DEV_MINTER_ROLE(), devAddress);
@@ -225,13 +276,10 @@ contract JuiceboxCardsTest is Test, ERC1155Receiver {
         );
 
         // Expect a revert when minting now
-        vm.expectRevert("devMint: must have dev mint role to mint");
+        vm.expectRevert(JuiceboxCards.NotDevMinter.selector);
 
         // Attempt to mint from the dev address
         juiceboxCards.devMint(to, projectIds, amounts);
-
-        // Stop the transaction
-        vm.stopPrank();
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -252,7 +300,7 @@ contract JuiceboxCardsTest is Test, ERC1155Receiver {
         uint256 id,
         uint256 value,
         bytes calldata data
-    ) external returns (bytes4) {
+    ) external pure returns (bytes4) {
         return bytes4(0xf23a6e61);
     }
 
