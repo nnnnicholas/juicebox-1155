@@ -18,6 +18,8 @@ import {JBTokens} from "@jbx-protocol/juice-contracts-v3/contracts/libraries/JBT
 import {JBSingleTokenPaymentTerminalStore3_1} from "@jbx-protocol/juice-contracts-v3/contracts/JBSingleTokenPaymentTerminalStore3_1.sol";
 import {IJBSingleTokenPaymentTerminal} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBSingleTokenPaymentTerminal.sol";
 
+import {ExpectedValues} from "./ExpectedValues.sol";
+
 contract JuiceboxCardsTest is Test, ERC1155Receiver {
     /*//////////////////////////////////////////////////////////////
                                  SETUP
@@ -222,15 +224,12 @@ contract JuiceboxCardsTest is Test, ERC1155Receiver {
         testMintOne(1, TIP_PROJECT); // Mint NFT for tip project
     }
 
-    // Test that the uri returns expeted value
+    // Test that the uri returns same value as JBProjects
     function testUri() public {
         testMintOne(1, 1); // Mint NFT for project 1, giving the minter 1 eth budget
         string memory uriFromJBProjects = JBProjects(JBPROJECTS).tokenURI(1);
         string memory uriFromContract = juiceboxCards.uri(1);
-
-        // hide unused variables warnings
-        uriFromJBProjects;
-        uriFromContract;
+        assertEq(uriFromContract, uriFromJBProjects);
     }
 
     // Test that contractUri is correctly set in constructor
@@ -246,7 +245,8 @@ contract JuiceboxCardsTest is Test, ERC1155Receiver {
         assertEq(contractUri, "abc");
     }
 
-    function testOnlyOwnerFunctions() public {
+    // Test that onlyOwner functions fail if called by non-owner
+    function testOnlyOwnerFunctionsFails() public {
         vm.startPrank(address(420));
 
         // Set price
@@ -257,13 +257,17 @@ contract JuiceboxCardsTest is Test, ERC1155Receiver {
         vm.expectRevert("Ownable: caller is not the owner");
         juiceboxCards.setTipProject(11);
 
+        // Set metadata URI
+        vm.expectRevert("Ownable: caller is not the owner");
+        juiceboxCards.setJBProjects(address(420));
+
+        // Set Directory
+        vm.expectRevert("Ownable: caller is not the owner");
+        juiceboxCards.setDirectory(address(420));
+
         // Set contract URI
         vm.expectRevert("Ownable: caller is not the owner");
         juiceboxCards.setContractUri("abc");
-
-        // Set metadata URI
-        vm.expectRevert("Ownable: caller is not the owner");
-        juiceboxCards.setJBProjects(address(0));
 
         vm.stopPrank();
     }
@@ -345,6 +349,42 @@ contract JuiceboxCardsTest is Test, ERC1155Receiver {
 
         // Attempt to mint from the dev address
         juiceboxCards.devMint(to, projectIds, amounts);
+    }
+
+    function testRenounceRoleFailsForNonDevs() public {
+        address devAddress = address(this); // The address of the dev
+
+        vm.startPrank(address(420));
+
+        // Attempt to renounce the role
+        try
+            juiceboxCards.renounceRole(
+                juiceboxCards.DEV_MINTER_ROLE(),
+                devAddress
+            )
+        {
+            // This should not be reachable if the contract works correctly
+            vm.expectRevert();
+        } catch Error(string memory reason) {
+            // This is where we end up if the call reverts. We can then check the revert reason.
+            assertEq("AccessControl: can only renounce roles for self", reason);
+        }
+
+        vm.stopPrank();
+    }
+
+    // Test that the tip terminal updates when called by anyone
+    function testSetTipTerminal() public {
+        IJBPaymentTerminal expectedTerminalAddress = JBDIRECTORY
+            .primaryTerminalOf(TIP_PROJECT, JBTokens.ETH);
+
+        // Update tip terminal
+        juiceboxCards.setTipTerminal();
+
+        assertEq(
+            address(expectedTerminalAddress),
+            address(juiceboxCards.ethTipTerminal())
+        );
     }
 
     /*//////////////////////////////////////////////////////////////

@@ -53,10 +53,6 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
         _;
     }
 
-    function renounceDevMinter() public onlyDevMinter {
-        renounceRole(DEV_MINTER_ROLE, msg.sender);
-    }
-
     /*//////////////////////////////////////////////////////////////
                              EVENTS 
     //////////////////////////////////////////////////////////////*/
@@ -99,10 +95,10 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
     uint256 public price;
 
     /// @dev The URI of the contract metadata
-    string private contractUri;
+    string public contractUri;
 
     /// @dev The tip project's primary eth terminal of the
-    IJBPaymentTerminal ethTipTerminal;
+    IJBPaymentTerminal public ethTipTerminal;
 
     /*//////////////////////////////////////////////////////////////
                              CONSTRUCTOR
