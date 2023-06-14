@@ -18,8 +18,6 @@ import {JBTokens} from "@jbx-protocol/juice-contracts-v3/contracts/libraries/JBT
 import {JBSingleTokenPaymentTerminalStore3_1} from "@jbx-protocol/juice-contracts-v3/contracts/JBSingleTokenPaymentTerminalStore3_1.sol";
 import {IJBSingleTokenPaymentTerminal} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBSingleTokenPaymentTerminal.sol";
 
-import {ExpectedValues} from "./ExpectedValues.sol";
-
 contract JuiceboxCardsTest is Test, ERC1155Receiver {
     /*//////////////////////////////////////////////////////////////
                                  SETUP
