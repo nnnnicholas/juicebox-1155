@@ -28,17 +28,17 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Insufficient funds to mint a Card
-    error InsufficientFunds();
+    error JBCards_TXValueBelowMintPrice();
 
     /// @notice Cannot pay the project
     /// @param _projectId The ID of the project that cannot be paid
-    error CannotPay(uint _projectId);
+    error JBCards_ProjectRefusedPayment(uint _projectId);
 
     /// @notice Function access is restricted to the dev minter role
-    error NotDevMinter();
+    error JBCards_MsgSenderDoesNotHaveDevMinterRole();
 
     /// @notice Input arrays must be of equal length
-    error UnequalLengthArrays();
+    error JBCards_DevMintArgumentArraysMustBeEqualLength();
 
     /*//////////////////////////////////////////////////////////////
                                  ACCESS
@@ -47,8 +47,8 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
     bytes32 public constant DEV_MINTER_ROLE = keccak256("DEV_MINTER_ROLE");
 
     modifier onlyDevMinter() {
-        if (hasRole(DEV_MINTER_ROLE, msg.sender) == false) {
-            revert NotDevMinter();
+        if (!hasRole(DEV_MINTER_ROLE, msg.sender)) {
+            revert JBCards_MsgSenderDoesNotHaveDevMinterRole();
         }
         _;
     }
@@ -61,19 +61,19 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
     event PriceSet(uint256 _price);
 
     /// @dev Emitted when the JBProjects contract address is set
-    event JBProjectsSet(address _JBProjects);
+    event JBProjectsSet(address indexed _JBProjects);
 
     /// @dev Emitted when the contract metadata URI is set
     event ContractUriSet(string _contractUri);
 
     /// @dev Emitted when a Card cannot be minted because a project cannot be paid
-    event PayFailed(uint _projectId);
+    event PayFailed(uint indexed _projectId);
 
     /// @dev Emitted when the directory address is set
-    event DirectorySet(address _directory);
+    event DirectorySet(address indexed _directory);
 
     /// @dev Emited when the tip recipient project ID is set
-    event TipProjectSet(uint256 _tipProject);
+    event TipProjectSet(uint256 indexed _tipProject);
 
     /// @dev Emitted when the tip terminal is set
     event TipTerminalSet(address indexed newTerminal);
@@ -131,7 +131,7 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
         address tipBeneficiary
     ) external payable nonReentrant {
         if (msg.value < price) {
-            revert InsufficientFunds();
+            revert JBCards_TXValueBelowMintPrice();
         }
 
         // Mint the NFT.
@@ -179,7 +179,7 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
                 )
             {} catch {
                 emit PayFailed(projectId);
-                revert CannotPay(projectId);
+                revert JBCards_ProjectRefusedPayment(projectId);
             }
         }
 
@@ -325,7 +325,7 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
             to.length != projectIds.length ||
             projectIds.length != amounts.length
         ) {
-            revert UnequalLengthArrays();
+            revert JBCards_DevMintArgumentArraysMustBeEqualLength();
         }
         for (uint256 i = 0; i < to.length; i++) {
             _mint(to[i], projectIds[i], amounts[i], bytes(""));
