@@ -40,6 +40,9 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
     /// @notice Input arrays must be of equal length
     error JBCards_DevMintArgumentArraysMustBeEqualLength();
 
+    /// @notice The project must have a payment terminal configured on the active JBDirectory
+    error JBCards_ProjectMustHaveAnETHPaymentTerminalConfiguredOnTheActiveJBDirectory();
+
     /*//////////////////////////////////////////////////////////////
                                  ACCESS
     //////////////////////////////////////////////////////////////*/
@@ -58,25 +61,25 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     /// @dev Emitted when the price of the NFT is set
-    event PriceSet(uint256 _price);
+    event JBCards_PriceSet(uint256 _price);
 
     /// @dev Emitted when the JBProjects contract address is set
-    event JBProjectsSet(address indexed _JBProjects);
+    event JBCards_JBProjectsSet(address indexed _JBProjects);
 
     /// @dev Emitted when the contract metadata URI is set
-    event ContractUriSet(string _contractUri);
+    event JBCards_ContractUriSet(string _contractUri);
 
     /// @dev Emitted when a Card cannot be minted because a project cannot be paid
-    event PayFailed(uint indexed _projectId);
+    event JBCards_PayFailed(uint indexed _projectId);
 
     /// @dev Emitted when the directory address is set
-    event DirectorySet(address indexed _directory);
+    event JBCards_DirectorySet(address indexed _directory);
 
     /// @dev Emited when the tip recipient project ID is set
-    event TipProjectSet(uint256 indexed _tipProject);
+    event JBCards_TipProjectSet(uint256 indexed _tipProject);
 
     /// @dev Emitted when the tip terminal is set
-    event TipTerminalSet(address indexed newTerminal);
+    event JBCards_TipTerminalSet(address indexed newTerminal);
 
     /*//////////////////////////////////////////////////////////////
                            STORAGE VARIABLES
@@ -145,7 +148,7 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
 
         // If the project doesn't have a payment terminal configured, revert.
         if (_ethTerminal == IJBPaymentTerminal(address(0))) {
-            revert("JuiceboxCards: Project must configure JBDirectory V3");
+            revert JBCards_ProjectMustHaveAnETHPaymentTerminalConfiguredOnTheActiveJBDirectory() ;
         }
 
         // Create the metadata for the payment
@@ -178,7 +181,7 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
                     _payMetadata
                 )
             {} catch {
-                emit PayFailed(projectId);
+                emit JBCards_PayFailed(projectId);
                 revert JBCards_ProjectRefusedPayment(projectId);
             }
         }
@@ -225,7 +228,7 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
         // Get the payment terminal the project currently prefers to accept ETH through.
         ethTipTerminal = directory.primaryTerminalOf(tipProject, JBTokens.ETH);
 
-        emit TipTerminalSet(address(ethTipTerminal));
+        emit JBCards_TipTerminalSet(address(ethTipTerminal));
     }
 
     /**
@@ -270,7 +273,7 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
      */
     function setPrice(uint64 _price) public onlyOwner {
         price = uint256(_price);
-        emit PriceSet(_price);
+        emit JBCards_PriceSet(_price);
     }
 
     /**
@@ -279,7 +282,7 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
      */
     function setTipProject(uint16 _tipProject) public onlyOwner {
         tipProject = uint256(_tipProject);
-        emit TipProjectSet(_tipProject);
+        emit JBCards_TipProjectSet(_tipProject);
         setTipTerminal();
     }
 
@@ -289,7 +292,7 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
      */
     function setJBProjects(address _JBProjects) public onlyOwner {
         jbProjects = IERC721Metadata(_JBProjects);
-        emit JBProjectsSet(_JBProjects);
+        emit JBCards_JBProjectsSet(_JBProjects);
     }
 
     /**
@@ -298,7 +301,7 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
      */
     function setDirectory(address _directory) public onlyOwner {
         directory = IJBDirectory(_directory);
-        emit DirectorySet(_directory);
+        emit JBCards_DirectorySet(_directory);
     }
 
     /**
@@ -307,7 +310,7 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
      */
     function setContractUri(string memory _contractUri) public onlyOwner {
         contractUri = _contractUri;
-        emit ContractUriSet(_contractUri);
+        emit JBCards_ContractUriSet(_contractUri);
     }
 
     /**
