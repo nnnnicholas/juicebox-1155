@@ -344,13 +344,21 @@ contract JuiceboxCardsTest is Test, ERC1155Receiver {
         assertEq(juiceboxCards.balanceOf(to[0], projectIds[0]), amounts[0]);
 
         // Expect a revert when minting with unequal length arrays
-        vm.expectRevert(JuiceboxCards.JBCards_DevMintArgumentArraysMustBeEqualLength.selector);
+        vm.expectRevert(
+            JuiceboxCards
+                .JBCards_DevMintArgumentArraysMustBeEqualLength
+                .selector
+        );
 
         // Check that unequal length arrays revert
         juiceboxCards.devMint(to, projectIds, new uint256[](2));
 
         // Expect a revert when minting with unequal length arrays
-        vm.expectRevert(JuiceboxCards.JBCards_DevMintArgumentArraysMustBeEqualLength.selector);
+        vm.expectRevert(
+            JuiceboxCards
+                .JBCards_DevMintArgumentArraysMustBeEqualLength
+                .selector
+        );
 
         // Check that unequal length arrays revert
         juiceboxCards.devMint(to, new uint256[](2), amounts);
@@ -365,7 +373,9 @@ contract JuiceboxCardsTest is Test, ERC1155Receiver {
         );
 
         // Expect a revert when minting now
-        vm.expectRevert(JuiceboxCards.JBCards_MsgSenderDoesNotHaveDevMinterRole.selector);
+        vm.expectRevert(
+            JuiceboxCards.JBCards_MsgSenderDoesNotHaveDevMinterRole.selector
+        );
 
         // Attempt to mint from the dev address
         juiceboxCards.devMint(to, projectIds, amounts);
