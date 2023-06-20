@@ -32,7 +32,7 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
 
     /// @notice Cannot pay the project
     /// @param _projectId The ID of the project that cannot be paid
-    error JBCards_ProjectRefusedPayment(uint _projectId);
+    error JBCards_ProjectRefusedPayment(uint256 _projectId);
 
     /// @notice Function access is restricted to the dev minter role
     error JBCards_MsgSenderDoesNotHaveDevMinterRole();
@@ -42,19 +42,6 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
 
     /// @notice The project must have a payment terminal configured on the active JBDirectory
     error JBCards_ProjectMustHaveAnETHPaymentTerminalConfiguredOnTheActiveJBDirectory();
-
-    /*//////////////////////////////////////////////////////////////
-                                 ACCESS
-    //////////////////////////////////////////////////////////////*/
-
-    bytes32 public constant DEV_MINTER_ROLE = keccak256("DEV_MINTER_ROLE");
-
-    modifier onlyDevMinter() {
-        if (!hasRole(DEV_MINTER_ROLE, msg.sender)) {
-            revert JBCards_MsgSenderDoesNotHaveDevMinterRole();
-        }
-        _;
-    }
 
     /*//////////////////////////////////////////////////////////////
                              EVENTS 
@@ -69,8 +56,44 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
     /// @dev Emitted when the contract metadata URI is set
     event JBCards_ContractUriSet(string _contractUri);
 
-    /// @dev Emitted when a Card cannot be minted because a project cannot be paid
-    event JBCards_PayFailed(uint indexed _projectId);
+    /// @dev Emitted when a project is paid with `pay` while minting a Card.
+    event JBCards_ProjectPaySucceeded(
+        uint256 indexed _projectId,
+        uint256 _amountPaid
+    );
+
+    /// @dev Emitted when a project is paid with `addToBalance` while minting a Card.
+    event JBCards_ProjectAddToBalanceSucceeded(
+        uint256 indexed _projectId,
+        uint256 _amountPaid
+    );
+
+    /// @dev Emitted when a `pay` call fails for a given project
+    event JBCards_ProjectPayFailed(uint256 indexed _projectId, uint256 _amount);
+
+    /// @dev Emitted when a `addToBalance` call fails for a given project
+    event JBCards_ProjectAddToBalanceFailed(uint256 indexed _projectId, uint256 _amount);
+
+    /// @dev Emitted when the tip project is tipped with `pay` while minting a Card.
+    event JBCards_TipPaySucceeded(
+        uint256 indexed _projectId,
+        uint256 _amountPaid
+    );
+
+    /// @dev Emitted when the tip project is tipped with `addToBalance` while minting a Card.
+    event JBCards_TipAddToBalanceSucceeded(
+        uint256 indexed _projectId,
+        uint256 _amountPaid
+    );
+
+    /// @dev Emitted when a tip `pay` fails
+    event JBCards_TipPayFailed(uint256 indexed _projectId, uint256 _amount);
+
+    /// @dev Emitted when a tip `addToBalance` fails
+    event JBCards_TipAddToBalanceFailed(
+        uint256 indexed _projectId,
+        uint256 _amount
+    );
 
     /// @dev Emitted when the directory address is set
     event JBCards_DirectorySet(address indexed _directory);
@@ -80,6 +103,19 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
 
     /// @dev Emitted when the tip terminal is set
     event JBCards_TipTerminalSet(address indexed newTerminal);
+
+    /*//////////////////////////////////////////////////////////////
+                                 ACCESS
+    //////////////////////////////////////////////////////////////*/
+
+    bytes32 public constant DEV_MINTER_ROLE = keccak256("DEV_MINTER_ROLE");
+
+    modifier onlyDevMinter() {
+        if (!hasRole(DEV_MINTER_ROLE, msg.sender)) {
+            revert JBCards_MsgSenderDoesNotHaveDevMinterRole();
+        }
+        _;
+    }
 
     /*//////////////////////////////////////////////////////////////
                            STORAGE VARIABLES
@@ -170,8 +206,11 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
                 "Juicebox Card minted",
                 _payMetadata
             )
-        {} catch {
-            // If pay returns an error, add to balance instead
+        {
+            emit JBCards_ProjectPaySucceeded(projectId, price); // If pay succeeds, emit success
+        } catch {
+            // If pay fails, emit failure and try addToBalance
+            emit JBCards_ProjectPayFailed(projectId, price);
             try
                 _ethTerminal.addToBalanceOf{value: price}(
                     projectId,
@@ -180,8 +219,11 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
                     "Juicebox Card minted",
                     _payMetadata
                 )
-            {} catch {
-                emit JBCards_PayFailed(projectId);
+            {
+                emit JBCards_ProjectAddToBalanceSucceeded(projectId, price); // If addToBalance succeeds, emit success
+            } catch {
+                // If addToBalance fails, emit failure and revert
+                emit JBCards_ProjectAddToBalanceFailed(projectId, price);
                 revert JBCards_ProjectRefusedPayment(projectId);
             }
         }
@@ -189,10 +231,11 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
         // If the msg.value is greater than the price, pay the tip to the tip project.
         if (msg.value > price) {
             // Pay the tip project.
+            uint256 tipAmount = address(this).balance;
             try
-                ethTipTerminal.pay{value: address(this).balance}(
+                ethTipTerminal.pay{value: tipAmount}(
                     tipProject,
-                    address(this).balance,
+                    tipAmount,
                     JBTokens.ETH,
                     tipBeneficiary,
                     0,
@@ -200,18 +243,29 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
                     "Juicebox Card tip",
                     _payMetadata // reuse the same metadata
                 )
-            {} catch {
-                // If pay returns an error, add to balance instead
+            {
+                // If pay succeeds, emit success
+                emit JBCards_TipPaySucceeded(tipProject, tipAmount);
+            } catch {
+                // If pay fails, emit failure and try addToBalance
+                emit JBCards_TipPayFailed(tipProject, tipAmount);
                 try
-                    ethTipTerminal.addToBalanceOf{value: address(this).balance}(
+                    ethTipTerminal.addToBalanceOf{value: tipAmount}(
                         tipProject,
-                        address(this).balance,
+                        tipAmount,
                         JBTokens.ETH,
                         "Juicebox Card tip",
                         _payMetadata // reuse the same metadata
                     )
-                {} catch {
+                {
+                    // If addToBalance succeeds, emit success
+                    emit JBCards_TipAddToBalanceSucceeded(
+                        tipProject,
+                        tipAmount
+                    );
+                } catch {
                     // If addToBalanceOf returns an error, leave the ETH in the contract. It will be paid to the tip project with the next successful mint.
+                    emit JBCards_TipAddToBalanceFailed(tipProject, tipAmount);
                 }
             }
         }
