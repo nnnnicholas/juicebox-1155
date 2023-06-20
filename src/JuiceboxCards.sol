@@ -148,7 +148,7 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
 
         // If the project doesn't have a payment terminal configured, revert.
         if (_ethTerminal == IJBPaymentTerminal(address(0))) {
-            revert JBCards_ProjectMustHaveAnETHPaymentTerminalConfiguredOnTheActiveJBDirectory() ;
+            revert JBCards_ProjectMustHaveAnETHPaymentTerminalConfiguredOnTheActiveJBDirectory();
         }
 
         // Create the metadata for the payment
