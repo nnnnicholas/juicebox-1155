@@ -2,6 +2,7 @@
 pragma solidity >=0.8.0;
 
 /// @title Juicebox Cards v1.2
+/// @notice Juicebox Cards gives every Juicebox project it's own Open Edition NFT that renders the Juicebox Project's own NFT metadata to every holder's wallet.
 /// @author @nnnnicholas
 
 import {IERC1155, ERC1155, IERC165} from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
@@ -137,7 +138,7 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
     uint256 public price;
 
     /// @dev The URI of the contract metadata
-    string public contractUri;
+    string private contractUri;
 
     /// @dev The tip project's primary eth terminal of the
     IJBPaymentTerminal public ethTipTerminal;

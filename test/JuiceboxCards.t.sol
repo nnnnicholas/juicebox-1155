@@ -33,18 +33,6 @@ contract JuiceboxCardsTest is Test, ERC1155Receiver {
         IJBDirectory(0x65572FB928b46f9aDB7cfe5A4c41226F636161ea); // JBDirectory V3
     address public constant JBPROJECTS =
         0xD8B4359143eda5B2d763E127Ed27c77addBc47d3;
-    // JBSingleTokenPaymentTerminalStore3_1
-    //     public constant JBSINGLETOKENPAYMENTTERMINALSTORE3_1 =
-    //     JBSingleTokenPaymentTerminalStore3_1(
-    //         0x77b0A81AeB61d08C0b23c739969d22c5C9950336
-    //     );
-    // IJBSingleTokenPaymentTerminal public constant JBPAYMENTTERMINAL =
-    //     IJBSingleTokenPaymentTerminal(
-    //         0xFA391De95Fcbcd3157268B91d8c7af083E607A5C
-    //     );
-    // address payable constant REVENUE_RECIPIENT = payable(address(720));
-    // address payable constant JBPROJECTPAYER =
-    // payable(0xD37b2FE8748f4795a465c9B851ce8066426A427F); // JBProject 465 Project Payer
     uint16 public constant TIP_PROJECT = 465;
     uint64 public constant PRICE_IN_WEI = 0.01 ether;
     string public constant CONTRACT_URI = "xyz";

@@ -13,7 +13,7 @@ contract DeployScript is Script {
     uint64 price = 0.01 ether;
     address directory = 0x65572FB928b46f9aDB7cfe5A4c41226F636161ea;
     string contractUri =
-        "ipfs://QmYGEhsCwMdmcZSmhEvpJXvSM4Jgvj4WyRgdwH53ZHtUar";
+        "ipfs://Qmf738Z8cXJ6n4aLszJcs3MgBTQqrp9ZVNkhWvVUueM5Gy";
 
     Config config =
         Config(jbProjects, tipProject, price, directory, contractUri);
