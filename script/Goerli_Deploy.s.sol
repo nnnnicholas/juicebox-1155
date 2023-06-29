@@ -20,7 +20,6 @@ contract DeployScript is Script {
 
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("GOERLI_PRIVATE_KEY");
-        // Deploy Juicebox1155
         vm.startBroadcast(deployerPrivateKey);
         JuiceboxCards juiceboxCards = new JuiceboxCards(config);
         vm.stopBroadcast();
