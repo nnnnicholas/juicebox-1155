@@ -1,6 +1,6 @@
-# Juicebox Project Cards
+# Juicebox Cards
 
-Juicebox Project Cards are a fun way to keep track of the health of your favorite Juicebox projects, right inside your own wallet! Project Cards are ERC-1155 NFT editions. Each project card corresponds to a specific project on the Juicebox Protocol. Project Cards display the same metadata as the canonical Juicebox Project NFT. Project cards display up-to-date treasury statistics for the corresponding project. If project owners customize their project metadata, the project cards will automatically update accordingly.
+Juicebox Cards are a fun way to keep track of the health of your favorite Juicebox projects, right inside your own wallet! Juicebox Cards are ERC-1155 NFT editions. Each project card corresponds to a specific project on the Juicebox Protocol. Juicebox Cards display the same metadata as the canonical Juicebox Project NFT. Cards display up-to-date treasury statistics for the corresponding project. If project owners customize their project metadata, the project cards will automatically update accordingly.
 
 ## Live deployment
 Mainnet: https://etherscan.io/address/0xe601eae33a0109147a6f3cd5f81997233d42fedd

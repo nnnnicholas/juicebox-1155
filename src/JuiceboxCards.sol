@@ -72,7 +72,10 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
     event JBCards_ProjectPayFailed(uint256 indexed _projectId, uint256 _amount);
 
     /// @dev Emitted when a `addToBalance` call fails for a given project
-    event JBCards_ProjectAddToBalanceFailed(uint256 indexed _projectId, uint256 _amount);
+    event JBCards_ProjectAddToBalanceFailed(
+        uint256 indexed _projectId,
+        uint256 _amount
+    );
 
     /// @dev Emitted when the tip project is tipped with `pay` while minting a Card.
     event JBCards_TipPaySucceeded(
@@ -277,6 +280,7 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
 
     /**
      * @notice Sets the tip project's primary ETH terminal
+     * @dev Callable by anyone, but only updates the primary terminal based on the configured directory, which is set by the owner.
      */
     function setTipTerminal() public {
         // Get the payment terminal the project currently prefers to accept ETH through.
@@ -289,6 +293,7 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
      * @notice Returns the URI of the NFT
      * @dev Returns the corresponding URI on the JBProjects contract
      * @param projectId The ID of the project to get the NFT URI for
+     * @return string The URI of the NFT
      */
     function uri(
         uint256 projectId
@@ -298,6 +303,7 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
 
     /**
      * @notice Returns the contract URI
+     * @return string The contract URI
      */
     function contractURI() public view returns (string memory) {
         return contractUri;
@@ -306,6 +312,7 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
     /**
      * @notice Returns whether or not the contract supports an interface
      * @param interfaceId The ID of the interface to check
+     * @return bool Whether or not the contract supports the interface
      * @inheritdoc IERC165
      */
     function supportsInterface(
@@ -331,7 +338,7 @@ contract JuiceboxCards is ERC1155, Ownable, AccessControl, ReentrancyGuard {
     }
 
     /**
-     * @notice Sets the project that receives tips
+     * @notice Sets the project that receives tips and updates the tip terminal
      * @param _tipProject The address that receives mint tips
      */
     function setTipProject(uint16 _tipProject) public onlyOwner {
