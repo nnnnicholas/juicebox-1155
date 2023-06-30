@@ -7,25 +7,21 @@ import {IJBProjectPayer} from "@jbx-protocol/juice-contracts-v3/contracts/JBETHE
 import {IJBProjects} from "@jbx-protocol/juice-contracts-v3/contracts/interfaces/IJBProjects.sol";
 import {Config} from "src/Structs/Config.sol";
 
-// contract DeployScript is Script {
-//     address public directory =
-//         address(0x65572FB928b46f9aDB7cfe5A4c41226F636161ea);
-//     address public projects = 0xD8B4359143eda5B2d763E127Ed27c77addBc47d3;
-//     address payable public projectPayer =
-//         payable(0xD37b2FE8748f4795a465c9B851ce8066426A427F);
-//     uint256 public priceInWei = 0.01 ether;
-//     string public contractUri =
-//         "ipfs://QmYGEhsCwMdmcZSmhEvpJXvSM4Jgvj4WyRgdwH53ZHtUar";
+contract DeployScript is Script {
+    address jbProjects = 0xD8B4359143eda5B2d763E127Ed27c77addBc47d3;
+    uint16 tipProject = 465;
+    uint64 price = 0.01 ether;
+    address directory = 0x65572FB928b46f9aDB7cfe5A4c41226F636161ea;
+    string contractUri =
+        "ipfs://Qmf738Z8cXJ6n4aLszJcs3MgBTQqrp9ZVNkhWvVUueM5Gy";
 
-//     // Config
-//     Config public config =
-//         Config(projects, projectPayer, priceInWei, contractUri, directory);
+    Config config =
+        Config(jbProjects, tipProject, price, directory, contractUri);
 
-//     function run() public {
-//         uint256 deployerPrivateKey = vm.envUint("MAINNET_PRIVATE_KEY");
-//         // Deploy Juicebox1155
-//         vm.startBroadcast(deployerPrivateKey);
-//         JuiceboxCards juiceboxCards = new JuiceboxCards(config);
-//         vm.stopBroadcast();
-//     }
-// }
+    function run() public {
+        uint256 deployerPrivateKey = vm.envUint("MAINNET_PRIVATE_KEY");
+        vm.startBroadcast(deployerPrivateKey);
+        JuiceboxCards juiceboxCards = new JuiceboxCards(config);
+        vm.stopBroadcast();
+    }
+}
